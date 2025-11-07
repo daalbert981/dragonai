@@ -1,14 +1,3 @@
-/**
- * File Upload Component
- *
- * Provides file upload functionality with:
- * - Drag and drop support
- * - Multiple file selection
- * - Upload progress tracking
- * - File validation
- * - Preview before sending
- */
-
 'use client'
 
 import React, { useRef, useState, useCallback } from 'react'
