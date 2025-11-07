@@ -220,3 +220,70 @@ export enum PasswordStrength {
   GOOD = 'good',
   STRONG = 'strong',
 }
+
+// Analytics types
+export interface StudentEngagementMetric {
+  studentId: string
+  studentName: string
+  studentEmail: string
+  messageCount: number
+  avgMessageLength: number
+  daysActive: number
+  lastActive: Date | null
+  engagementScore: number
+  enrolledAt: Date
+}
+
+export interface ActivityDataPoint {
+  date: string
+  messageCount: number
+}
+
+export interface PeakActivityHour {
+  hour: number
+  count: number
+}
+
+export interface CommonQuestion {
+  text: string
+  count: number
+  keywords: string[]
+}
+
+export interface TopKeyword {
+  keyword: string
+  count: number
+}
+
+export interface EngagementDistribution {
+  high: number
+  medium: number
+  low: number
+}
+
+export interface CourseAnalytics {
+  course: {
+    id: string
+    name: string
+    code: string
+    instructor: string
+    createdAt: Date
+  }
+  summary: {
+    totalStudents: number
+    totalMessages: number
+    uniqueActiveStudents: number
+    participationRate: number
+    messagesLast30Days: number
+    messagesLast7Days: number
+    avgMessagesPerStudent: number
+    responseRate: number
+    avgResponseLength: number
+  }
+  studentMetrics: StudentEngagementMetric[]
+  activityTimeline: ActivityDataPoint[]
+  peakActivityHours: PeakActivityHour[]
+  commonQuestions: CommonQuestion[]
+  topKeywords: TopKeyword[]
+  engagementDistribution: EngagementDistribution
+}
