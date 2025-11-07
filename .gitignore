@@ -38,3 +38,10 @@ next-env.d.ts
 # prisma
 prisma/migrations/*
 !prisma/migrations/.gitkeep
+
+# Google Cloud Storage credentials
+/static
+*.json
+!package.json
+!tsconfig.json
+!components.json
