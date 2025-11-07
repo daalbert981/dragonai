@@ -12,17 +12,49 @@ datasource db {
 
 // User model for authentication
 model User {
-  id            String    @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String       @unique
   emailVerified DateTime?
   image         String?
   password      String?
-  role          UserRole  @default(STUDENT)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          UserRole     @default(STUDENT)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  // Relations will be added as features are developed
+  // Relations
+  enrollments   Enrollment[]
+  coursesOwned  Course[]     @relation("CourseInstructor")
+}
+
+// Course model
+model Course {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  code        String       @unique
+  instructorId String?
+  instructor  User?        @relation("CourseInstructor", fields: [instructorId], references: [id])
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  enrollments Enrollment[]
+}
+
+// Enrollment model - tracks student enrollment in courses
+model Enrollment {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime @default(now())
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
 }
 
 enum UserRole {
