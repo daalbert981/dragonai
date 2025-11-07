@@ -1,15 +1,3 @@
-/**
- * Chat Interface Component
- *
- * Main chat interface with:
- * - Real-time streaming responses
- * - Optimistic UI updates
- * - File upload support
- * - Message retry and regenerate
- * - Auto-scroll to latest message
- * - Error handling
- */
-
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
