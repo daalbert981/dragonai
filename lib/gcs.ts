@@ -1,211 +1,148 @@
-import { Storage } from '@google-cloud/storage';
+/**
+ * File storage utilities using Vercel Blob
+ * This module provides file upload, download, and deletion functionality
+ */
 
-// Types
+import { put, del, list } from '@vercel/blob';
+
 export interface UploadResult {
   url: string;
-  filePath: string;
-  fileName: string;
-}
-
-export interface DownloadResult {
-  buffer: Buffer;
+  filename: string;
+  size: number;
   mimeType: string;
 }
 
-// Initialize Storage client based on environment
-let storage: Storage;
-
-if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-  // Local development - use JSON file
-  storage = new Storage({
-    keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-  });
-} else if (process.env.GCS_PRIVATE_KEY && process.env.GCS_CLIENT_EMAIL) {
-  // Production - use individual environment variables
-  storage = new Storage({
-    projectId: process.env.GCS_PROJECT_ID,
-    credentials: {
-      client_email: process.env.GCS_CLIENT_EMAIL,
-      private_key: process.env.GCS_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    },
-  });
-} else {
-  throw new Error(
-    'GCS credentials not configured. Set GOOGLE_APPLICATION_CREDENTIALS or individual GCS env vars.'
-  );
-}
-
-const bucketName = process.env.GCS_BUCKET_NAME || 'user_summaries';
-const bucket = storage.bucket(bucketName);
-
 /**
- * Upload a file to Google Cloud Storage
- * @param fileBuffer - The file buffer to upload
- * @param fileName - The original file name
- * @param mimeType - The MIME type of the file
- * @param courseId - The course ID for folder organization
- * @returns Upload result with signed URL and file path
+ * Upload a file to Vercel Blob storage
+ * @param file - File to upload
+ * @param folder - Optional folder path (e.g., 'courses/materials')
+ * @returns Upload result with URL and metadata
  */
 export async function uploadFile(
-  fileBuffer: Buffer,
-  fileName: string,
-  mimeType: string,
-  courseId: string
+  file: File,
+  folder?: string
 ): Promise<UploadResult> {
   try {
-    // Create file path with folder structure: courses/{courseId}/uploads/{timestamp}-{fileName}
-    const timestamp = Date.now();
-    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const filePath = `courses/${courseId}/uploads/${timestamp}-${sanitizedFileName}`;
+    const filename = file.name;
+    const path = folder ? `${folder}/${filename}` : filename;
 
-    // Create file reference
-    const file = bucket.file(filePath);
-
-    // Upload the file
-    await file.save(fileBuffer, {
-      metadata: {
-        contentType: mimeType,
-        metadata: {
-          originalName: fileName,
-          uploadedAt: new Date().toISOString(),
-          courseId,
-        },
-      },
-    });
-
-    // Generate signed URL (7 days expiration)
-    const [signedUrl] = await file.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+    const blob = await put(path, file, {
+      access: 'public',
     });
 
     return {
-      url: signedUrl,
-      filePath,
-      fileName: sanitizedFileName,
+      url: blob.url,
+      filename: path,
+      size: file.size,
+      mimeType: file.type || 'application/octet-stream',
     };
   } catch (error) {
-    console.error('Error uploading file to GCS:', error);
-    throw new Error(
-      `Failed to upload file to GCS: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    console.error('Error uploading file:', error);
+    throw new Error('Failed to upload file');
   }
 }
 
 /**
- * Delete a file from Google Cloud Storage
- * @param filePath - The path of the file to delete
- * @returns True if deletion was successful
+ * Upload multiple files to Vercel Blob storage
+ * @param files - Array of files to upload
+ * @param folder - Optional folder path
+ * @returns Array of upload results
  */
-export async function deleteFile(filePath: string): Promise<boolean> {
+export async function uploadFiles(
+  files: File[],
+  folder?: string
+): Promise<UploadResult[]> {
+  const uploads = files.map((file) => uploadFile(file, folder));
+  return Promise.all(uploads);
+}
+
+/**
+ * Delete a file from Vercel Blob storage
+ * @param url - URL of the file to delete
+ */
+export async function deleteFile(url: string): Promise<void> {
   try {
-    const file = bucket.file(filePath);
-    await file.delete();
-    return true;
+    await del(url);
   } catch (error) {
-    console.error('Error deleting file from GCS:', error);
-    throw new Error(
-      `Failed to delete file from GCS: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    console.error('Error deleting file:', error);
+    throw new Error('Failed to delete file');
   }
 }
 
 /**
- * Generate a signed URL for temporary file access
- * @param filePath - The path of the file
- * @param expiresInMinutes - Expiration time in minutes (default: 60)
- * @returns Signed URL
+ * Delete multiple files from Vercel Blob storage
+ * @param urls - Array of URLs to delete
  */
-export async function getSignedUrl(
-  filePath: string,
-  expiresInMinutes: number = 60
-): Promise<string> {
+export async function deleteFiles(urls: string[]): Promise<void> {
+  const deletions = urls.map((url) => deleteFile(url));
+  await Promise.all(deletions);
+}
+
+/**
+ * List files in a folder
+ * @param prefix - Folder prefix (e.g., 'courses/materials')
+ * @returns Array of file URLs
+ */
+export async function listFiles(prefix?: string): Promise<string[]> {
   try {
-    const file = bucket.file(filePath);
-
-    // Check if file exists
-    const [exists] = await file.exists();
-    if (!exists) {
-      throw new Error(`File not found: ${filePath}`);
-    }
-
-    const [signedUrl] = await file.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + expiresInMinutes * 60 * 1000,
-    });
-
-    return signedUrl;
+    const { blobs } = await list({ prefix });
+    return blobs.map((blob) => blob.url);
   } catch (error) {
-    console.error('Error generating signed URL:', error);
-    throw new Error(
-      `Failed to generate signed URL: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    console.error('Error listing files:', error);
+    throw new Error('Failed to list files');
   }
 }
 
 /**
- * Download a file from Google Cloud Storage
- * @param filePath - The path of the file to download
- * @returns Download result with buffer and MIME type
+ * Generate a unique filename with timestamp
+ * @param originalName - Original filename
+ * @returns Unique filename
  */
-export async function downloadFile(filePath: string): Promise<DownloadResult> {
-  try {
-    const file = bucket.file(filePath);
+export function generateUniqueFilename(originalName: string): string {
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 8);
+  const extension = originalName.split('.').pop();
+  const nameWithoutExt = originalName.replace(`.${extension}`, '');
+  const sanitizedName = nameWithoutExt.replace(/[^a-zA-Z0-9]/g, '-');
 
-    // Check if file exists
-    const [exists] = await file.exists();
-    if (!exists) {
-      throw new Error(`File not found: ${filePath}`);
-    }
-
-    // Download file
-    const [buffer] = await file.download();
-
-    // Get file metadata for MIME type
-    const [metadata] = await file.getMetadata();
-    const mimeType = metadata.contentType || 'application/octet-stream';
-
-    return {
-      buffer,
-      mimeType,
-    };
-  } catch (error) {
-    console.error('Error downloading file from GCS:', error);
-    throw new Error(
-      `Failed to download file from GCS: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
-  }
+  return `${sanitizedName}-${timestamp}-${randomString}.${extension}`;
 }
 
 /**
- * Check if a file exists in Google Cloud Storage
- * @param filePath - The path of the file to check
- * @returns True if file exists
+ * Validate file type
+ * @param file - File to validate
+ * @param allowedTypes - Array of allowed MIME types
+ * @returns True if file type is allowed
  */
-export async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    const file = bucket.file(filePath);
-    const [exists] = await file.exists();
-    return exists;
-  } catch (error) {
-    console.error('Error checking file existence:', error);
-    return false;
-  }
+export function validateFileType(
+  file: File,
+  allowedTypes: string[]
+): boolean {
+  return allowedTypes.includes(file.type);
 }
 
 /**
- * List files in a specific folder
- * @param prefix - The folder prefix (e.g., 'courses/123/uploads/')
- * @returns Array of file paths
+ * Validate file size
+ * @param file - File to validate
+ * @param maxSizeInMB - Maximum file size in megabytes
+ * @returns True if file size is within limit
  */
-export async function listFiles(prefix: string): Promise<string[]> {
-  try {
-    const [files] = await bucket.getFiles({ prefix });
-    return files.map((file) => file.name);
-  } catch (error) {
-    console.error('Error listing files from GCS:', error);
-    throw new Error(
-      `Failed to list files from GCS: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
-  }
+export function validateFileSize(file: File, maxSizeInMB: number): boolean {
+  const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+  return file.size <= maxSizeInBytes;
+}
+
+/**
+ * Format file size to human-readable string
+ * @param bytes - File size in bytes
+ * @returns Formatted string (e.g., "1.5 MB")
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
