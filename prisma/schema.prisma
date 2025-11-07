@@ -22,7 +22,76 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Relations will be added as features are developed
+  // Relations
+  instructorCourses CourseInstructor[]
+  enrollments       CourseEnrollment[]
+}
+
+// Course model
+model Course {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  syllabus    String?
+  systemPrompt String?
+  model       String   @default("gpt-4-turbo")
+  temperature Float    @default(0.7)
+  reasoningLevel String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  instructors  CourseInstructor[]
+  enrollments  CourseEnrollment[]
+  materials    CourseMaterial[]
+}
+
+// Join table for Course-Instructor relationship
+model CourseInstructor {
+  id         String   @id @default(cuid())
+  courseId   String
+  userId     String
+  assignedAt DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@index([courseId])
+  @@index([userId])
+}
+
+// Course enrollment model
+model CourseEnrollment {
+  id         String   @id @default(cuid())
+  courseId   String
+  userId     String
+  enrolledAt DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@index([courseId])
+  @@index([userId])
+}
+
+// Course material model
+model CourseMaterial {
+  id          String   @id @default(cuid())
+  courseId    String
+  filename    String
+  originalName String
+  fileSize    Int
+  mimeType    String?
+  storageUrl  String
+  description String?
+  uploadedAt  DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
 }
 
 enum UserRole {
