@@ -6,10 +6,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-// Validation schema
-const registerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+const resetPasswordSchema = z.object({
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -26,12 +23,12 @@ const registerSchema = z.object({
   path: ['confirmPassword'],
 });
 
-type RegisterFormData = z.infer<typeof registerSchema>;
+type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
-export default function RegisterPage() {
+export default function ResetPasswordPage({ params }: { params: { token: string } }) {
   const router = useRouter();
   const [error, setError] = useState<string>('');
-  const [success, setSuccess] = useState<string>('');
+  const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -41,7 +38,7 @@ export default function RegisterPage() {
     handleSubmit,
     formState: { errors },
     watch,
-  } = useForm<RegisterFormData>();
+  } = useForm<ResetPasswordFormData>();
 
   const password = watch('password', '');
 
@@ -66,21 +63,19 @@ export default function RegisterPage() {
     'bg-green-500',
   ];
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: ResetPasswordFormData) => {
     setError('');
-    setSuccess('');
     setIsLoading(true);
 
     try {
       // Validate with Zod
-      registerSchema.parse(data);
+      resetPasswordSchema.parse(data);
 
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: data.name,
-          email: data.email,
+          token: params.token,
           password: data.password,
         }),
       });
@@ -88,19 +83,47 @@ export default function RegisterPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Registration failed');
+        throw new Error(result.error || 'Failed to reset password');
       }
 
-      setSuccess(result.message);
+      setSuccess(true);
       setTimeout(() => {
-        router.push('/login?registered=true');
-      }, 2000);
+        router.push('/login');
+      }, 3000);
     } catch (err: any) {
-      setError(err.message || 'An error occurred during registration');
+      setError(err.message || 'An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="rounded-lg bg-white p-8 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <span className="text-3xl">✓</span>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Password Reset Successful!
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Your password has been changed successfully. You will be redirected to the login page shortly.
+              </p>
+              <Link
+                href="/login"
+                className="inline-block px-6 py-2 text-white bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg hover:from-purple-700 hover:to-blue-700 font-medium"
+              >
+                Go to Login
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 px-4 py-12">
@@ -110,55 +133,17 @@ export default function RegisterPage() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
               Dragon AI
             </h1>
-            <h2 className="text-2xl font-bold mt-4">Create an account</h2>
+            <h2 className="text-2xl font-bold mt-4">Reset Your Password</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Join Dragon AI to get started
+              Enter your new password below
             </p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Name Field */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                {...register('name', { required: 'Name is required' })}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                  errors.name ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="John Doe"
-              />
-              {errors.name && (
-                <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-              )}
-            </div>
-
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                {...register('email', { required: 'Email is required' })}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                  errors.email ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="john@example.com"
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
-            </div>
-
             {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                New Password
               </label>
               <div className="relative">
                 <input
@@ -205,7 +190,7 @@ export default function RegisterPage() {
             {/* Confirm Password Field */}
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password
+                Confirm New Password
               </label>
               <div className="relative">
                 <input
@@ -237,35 +222,25 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* Success Message */}
-            {success && (
-              <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-                <p className="text-sm text-green-600">{success}</p>
-              </div>
-            )}
-
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
               className="w-full px-4 py-2 text-white bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {isLoading ? 'Creating account...' : 'Create Account'}
+              {isLoading ? 'Resetting...' : 'Reset Password'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <Link href="/login" className="font-medium text-purple-600 hover:text-purple-700">
-                Sign in
-              </Link>
-            </p>
+            <Link href="/login" className="text-sm font-medium text-purple-600 hover:text-purple-700">
+              ← Back to login
+            </Link>
           </div>
         </div>
 
         <p className="mt-4 text-center text-xs text-gray-500">
-          By creating an account, you agree to our Terms of Service and Privacy Policy
+          Secure password reset powered by Dragon AI
         </p>
       </div>
     </div>
