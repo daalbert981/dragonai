@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { MaterialUpload } from '@/components/admin/MaterialUpload';
 import { ArrowLeft, Download, Trash2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { formatFileSize } from '@/lib/gcs';
+import { formatFileSize } from '@/lib/utils/format';
 
 export default function MaterialsManagementPage({
   params,
