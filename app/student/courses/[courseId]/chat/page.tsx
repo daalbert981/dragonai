@@ -11,6 +11,8 @@
 
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { ChatInterface } from '@/components/chat/ChatInterface'
 import { prisma } from '@/lib/prisma'
 import { validateCourseAccess } from '@/lib/security'
@@ -35,9 +37,14 @@ export default async function StudentCourseChatPage({
   const { courseId } = params
   const { sessionId } = searchParams
 
-  // TODO: Get user from session
-  // For now, using a mock user ID - replace with actual auth
-  const userId = 'mock-user-id' // Replace with: await getServerSession()
+  // Get authenticated user from session
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user?.id) {
+    redirect('/login')
+  }
+
+  const userId = session.user.id
 
   // Validate course access
   const hasAccess = await validateCourseAccess(userId, courseId)
