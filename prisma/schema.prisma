@@ -10,6 +10,38 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Enums
+enum UserRole {
+  STUDENT
+  INSTRUCTOR
+  SUPERADMIN
+}
+
+enum CourseRole {
+  STUDENT
+  TA
+  INSTRUCTOR
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum SessionType {
+  UPCOMING
+  PAST
+  CANCELLED
+}
+
+enum UploadStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 // User model for authentication
 model User {
   id            String    @id @default(cuid())
@@ -22,11 +54,161 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Relations will be added as features are developed
+  // Relations
+  instructorCourses Course[]           // Courses where user is instructor
+  enrollments       CourseEnrollment[] // Course enrollments as student
+  chatSessions      ChatSession[]
+  messages          ChatMessage[]
+  fileUploads       FileUpload[]
+
+  @@index([email])
+  @@index([role])
 }
 
-enum UserRole {
-  STUDENT
-  ADMIN
-  SUPERADMIN
+// Course model
+model Course {
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  description  String?  @db.Text
+  instructorId String
+  systemPrompt String   @db.Text
+  modelConfig  Json
+  syllabusInfo String?  @db.Text
+  timezone     String   @default("America/New_York")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  instructor  User               @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  enrollments CourseEnrollment[]
+  materials   CourseMaterial[]
+  sessions    ChatSession[]
+  schedules   ClassSchedule[]
+
+  @@index([instructorId])
+  @@index([code])
+  @@index([isActive])
+}
+
+// Course enrollment - many-to-many between users and courses
+model CourseEnrollment {
+  id         String     @id @default(cuid())
+  userId     String
+  courseId   String
+  role       CourseRole @default(STUDENT)
+  enrolledAt DateTime   @default(now())
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+// Course materials - PDFs, documents, etc.
+model CourseMaterial {
+  id                    String   @id @default(cuid())
+  courseId              String
+  fileName              String
+  fileUrl               String
+  fileSize              Int
+  mimeType              String
+  instructorDescription String   @db.Text
+  aiGeneratedSummary    String?  @db.Text
+  isProcessed           Boolean  @default(false)
+  uploadedAt            DateTime @default(now())
+
+  // Relations
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([isProcessed])
+}
+
+// Chat sessions
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  title     String?  @default("New Chat")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course   Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([createdAt])
+}
+
+// Chat messages
+model ChatMessage {
+  id          String       @id @default(cuid())
+  sessionId   String
+  userId      String
+  role        MessageRole
+  content     String       @db.Text
+  metadata    Json?
+  isStreaming Boolean      @default(false)
+  error       String?      @db.Text
+  tokenCount  Int?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  session     ChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileUploads FileUpload[]
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// File upload model for tracking uploaded files
+model FileUpload {
+  id           String       @id @default(cuid())
+  messageId    String
+  userId       String
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int // Size in bytes
+  url          String // GCS or storage URL
+  status       UploadStatus @default(PENDING)
+  uploadedAt   DateTime     @default(now())
+
+  // Relations
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([userId])
+  @@index([status])
+}
+
+// Class schedule
+model ClassSchedule {
+  id          String      @id @default(cuid())
+  courseId    String
+  title       String
+  description String?     @db.Text
+  sessionDate DateTime
+  sessionType SessionType
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([sessionDate])
+  @@index([sessionType])
 }
