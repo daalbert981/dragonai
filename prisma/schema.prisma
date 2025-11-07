@@ -22,11 +22,130 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Relations will be added as features are developed
+  // Relations
+  enrollments   CourseEnrollment[]
+  chatSessions  ChatSession[]
+  messages      Message[]
+  fileUploads   FileUpload[]
+}
+
+// Course model
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  code        String   @unique  // e.g., "CS101"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  enrollments CourseEnrollment[]
+  chatSessions ChatSession[]
+}
+
+// Course enrollment for access control
+model CourseEnrollment {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  role      CourseRole @default(STUDENT)
+  enrolledAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+// Chat session for organizing conversations
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  title     String?  // Optional title for the chat
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([createdAt])
+}
+
+// Message model for chat messages
+model Message {
+  id            String      @id @default(cuid())
+  sessionId     String
+  userId        String
+  role          MessageRole
+  content       String      @db.Text
+  isStreaming   Boolean     @default(false)
+  error         String?     @db.Text
+  tokenCount    Int?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileUploads   FileUpload[]
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// File upload model for tracking uploaded files
+model FileUpload {
+  id           String   @id @default(cuid())
+  messageId    String
+  userId       String
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int      // Size in bytes
+  url          String   // GCS or storage URL
+  status       UploadStatus @default(PENDING)
+  uploadedAt   DateTime @default(now())
+
+  // Relations
+  message      Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([userId])
+  @@index([status])
 }
 
 enum UserRole {
   STUDENT
   ADMIN
   SUPERADMIN
+}
+
+enum CourseRole {
+  STUDENT
+  TA
+  INSTRUCTOR
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum UploadStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
