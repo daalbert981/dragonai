@@ -12,21 +12,127 @@ datasource db {
 
 // User model for authentication
 model User {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String        @unique
   emailVerified DateTime?
   image         String?
   password      String?
-  role          UserRole  @default(STUDENT)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          UserRole      @default(STUDENT)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  // Relations will be added as features are developed
+  // Relations
+  documents     Document[]
+  courses       Course[]
+  chatSessions  ChatSession[]
 }
 
 enum UserRole {
   STUDENT
   ADMIN
   SUPERADMIN
+}
+
+// Course model for organizing content
+model Course {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  code        String?    @unique
+  userId      String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents   Document[]
+
+  @@index([userId])
+}
+
+// Document model for uploaded files
+model Document {
+  id              String           @id @default(cuid())
+  filename        String
+  originalName    String
+  mimeType        String
+  size            Int
+  blobUrl         String           // Vercel Blob URL
+  status          DocumentStatus   @default(PENDING)
+  errorMessage    String?
+  userId          String
+  courseId        String?
+  processingStartedAt DateTime?
+  processingCompletedAt DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course          Course?          @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  chunks          DocumentChunk[]
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Document chunk model for processed text
+model DocumentChunk {
+  id          String   @id @default(cuid())
+  documentId  String
+  content     String   @db.Text
+  metadata    Json?    // Store page number, position, etc.
+  chunkIndex  Int
+  embedding   Float[]? // For future vector search
+  createdAt   DateTime @default(now())
+
+  // Relations
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+// Chat session model
+model ChatSession {
+  id          String        @id @default(cuid())
+  title       String?
+  userId      String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    ChatMessage[]
+
+  @@index([userId])
+}
+
+// Chat message model
+model ChatMessage {
+  id            String      @id @default(cuid())
+  sessionId     String
+  role          MessageRole
+  content       String      @db.Text
+  documentIds   String[]    // Array of document IDs used for context
+  createdAt     DateTime    @default(now())
+
+  // Relations
+  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
 }
