@@ -12,21 +12,73 @@ datasource db {
 
 // User model for authentication
 model User {
-  id            String    @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String       @unique
   emailVerified DateTime?
   image         String?
   password      String?
-  role          UserRole  @default(STUDENT)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          UserRole     @default(STUDENT)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  // Relations will be added as features are developed
+  // Relations
+  enrollments   Enrollment[]
+  chatMessages  ChatMessage[]
+  coursesOwned  Course[]     @relation("CourseInstructor")
 }
 
 enum UserRole {
   STUDENT
   ADMIN
   SUPERADMIN
+}
+
+// Course model
+model Course {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  code        String       @unique
+  instructorId String
+  instructor  User         @relation("CourseInstructor", fields: [instructorId], references: [id], onDelete: Cascade)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  enrollments  Enrollment[]
+  chatMessages ChatMessage[]
+
+  @@index([instructorId])
+}
+
+// Student enrollment in courses
+model Enrollment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime @default(now())
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+// Chat messages for analytics
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  message   String   @db.Text
+  response  String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([createdAt])
 }
