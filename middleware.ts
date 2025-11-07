@@ -15,9 +15,9 @@ const roleRoutes: Record<string, UserRole[]> = {
 
 // Define dashboard paths for each role
 const dashboardPaths: Record<UserRole, string> = {
-  STUDENT: '/student/dashboard',
-  INSTRUCTOR: '/admin/dashboard',
-  SUPERADMIN: '/superadmin/dashboard',
+  STUDENT: '/student',
+  INSTRUCTOR: '/admin',
+  SUPERADMIN: '/superadmin',
 }
 
 export async function middleware(request: NextRequest) {
