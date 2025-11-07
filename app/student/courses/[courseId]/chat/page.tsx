@@ -12,7 +12,7 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth-options'
 import { ChatInterface } from '@/components/chat/ChatInterface'
 import { prisma } from '@/lib/prisma'
 import { validateCourseAccess } from '@/lib/security'
@@ -37,13 +37,11 @@ export default async function StudentCourseChatPage({
   const { courseId } = params
   const { sessionId } = searchParams
 
-  // Get authenticated user from session
+  // Get authenticated session
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
     redirect('/login')
   }
-
   const userId = session.user.id
 
   // Validate course access
