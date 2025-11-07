@@ -51,6 +51,7 @@ model User {
   image         String?
   password      String?
   role          UserRole  @default(STUDENT)
+  status        UserStatus @default(ACTIVE)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -63,6 +64,7 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([status])
 }
 
 // Course model
@@ -211,4 +213,10 @@ model ClassSchedule {
   @@index([courseId])
   @@index([sessionDate])
   @@index([sessionType])
+}
+
+// User status enum
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
 }
