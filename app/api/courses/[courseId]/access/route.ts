@@ -71,7 +71,7 @@ export async function GET(
         enrolledAt: enrollment.enrolledAt,
         course: {
           id: enrollment.course.id,
-          title: enrollment.course.title,
+          name: enrollment.course.name,
           description: enrollment.course.description,
           code: enrollment.course.code
         }

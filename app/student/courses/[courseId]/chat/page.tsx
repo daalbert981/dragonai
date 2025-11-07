@@ -59,7 +59,7 @@ export default async function StudentCourseChatPage({
   let initialMessages = []
 
   if (sessionId) {
-    const messages = await prisma.message.findMany({
+    const messages = await prisma.chatMessage.findMany({
       where: { sessionId },
       orderBy: { createdAt: 'asc' },
       take: 50,
@@ -106,7 +106,7 @@ export default async function StudentCourseChatPage({
             </div>
             <div>
               <h1 className="text-lg font-semibold text-foreground">
-                {course.title}
+                {course.name}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {course.code} • AI Assistant
@@ -202,7 +202,7 @@ export async function generateMetadata({ params }: CourseChatePageProps) {
 
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    select: { title: true, code: true }
+    select: { name: true, code: true }
   })
 
   if (!course) {
@@ -213,6 +213,6 @@ export async function generateMetadata({ params }: CourseChatePageProps) {
 
   return {
     title: `${course.code} - Chat | Dragon AI`,
-    description: `AI Assistant chat for ${course.title}`
+    description: `AI Assistant chat for ${course.name}`
   }
 }

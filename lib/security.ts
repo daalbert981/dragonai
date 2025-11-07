@@ -173,7 +173,7 @@ export async function validateMessageOwnership(
   userId: string
 ): Promise<boolean> {
   try {
-    const message = await prisma.message.findUnique({
+    const message = await prisma.chatMessage.findUnique({
       where: { id: messageId },
       select: { userId: true }
     })

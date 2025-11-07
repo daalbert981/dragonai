@@ -365,7 +365,7 @@ export function ChatInterface({
     .find(m => m.role === 'ASSISTANT')?.id
 
   return (
-    <ErrorBoundary fallback={ChatErrorFallback}>
+    <ErrorBoundary fallback={(error, reset) => <ChatErrorFallback error={error} onReset={reset} />}>
       <div className="flex flex-col h-full">
         {/* Error banner */}
         {error && (
