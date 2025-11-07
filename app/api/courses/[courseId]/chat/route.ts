@@ -125,7 +125,7 @@ export async function POST(
     }
 
     // Create message
-    const message = await prisma.message.create({
+    const message = await prisma.chatMessage.create({
       data: {
         sessionId: chatSession.id,
         userId,
@@ -151,7 +151,7 @@ export async function POST(
       })
 
       // Fetch updated message with files
-      const updatedMessage = await prisma.message.findUnique({
+      const updatedMessage = await prisma.chatMessage.findUnique({
         where: { id: message.id },
         include: {
           fileUploads: true
@@ -290,7 +290,7 @@ export async function GET(
     }
 
     // Get messages
-    const messages = await prisma.message.findMany({
+    const messages = await prisma.chatMessage.findMany({
       where: { sessionId },
       include: {
         fileUploads: true

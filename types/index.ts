@@ -1,10 +1,39 @@
 // Global type definitions for Dragon AI
+import { z } from 'zod'
+import type { UserRole, CourseRole, MessageRole, UploadStatus } from '@prisma/client'
 
-export type UserRole = 'STUDENT' | 'ADMIN' | 'SUPERADMIN'
-export type CourseRole = 'STUDENT' | 'TA' | 'INSTRUCTOR'
-export type MessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM'
-export type UploadStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+// Re-export Prisma types
+export type { UserRole, CourseRole, MessageRole, UploadStatus }
 
+// NextAuth type extensions
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id: string
+      email: string
+      name: string | null
+      role: UserRole
+      image?: string | null
+    }
+  }
+
+  interface User {
+    id: string
+    email: string
+    name: string | null
+    role: UserRole
+    image?: string | null
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    id: string
+    role: UserRole
+  }
+}
+
+// Database models as TypeScript interfaces
 export interface User {
   id: string
   name: string | null
@@ -18,9 +47,14 @@ export interface User {
 
 export interface Course {
   id: string
-  title: string
-  description: string | null
+  name: string
   code: string
+  description: string | null
+  instructorId: string
+  systemPrompt: string
+  modelConfig: any // JSON
+  syllabusInfo: string | null
+  timezone: string
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -36,6 +70,20 @@ export interface CourseEnrollment {
   course?: Course
 }
 
+export interface CourseMaterial {
+  id: string
+  courseId: string
+  fileName: string
+  fileUrl: string
+  fileSize: number
+  mimeType: string
+  instructorDescription: string
+  aiGeneratedSummary: string | null
+  isProcessed: boolean
+  uploadedAt: Date
+  course?: Course
+}
+
 export interface ChatSession {
   id: string
   userId: string
@@ -45,15 +93,16 @@ export interface ChatSession {
   updatedAt: Date
   user?: User
   course?: Course
-  messages?: Message[]
+  messages?: ChatMessage[]
 }
 
-export interface Message {
+export interface ChatMessage {
   id: string
   sessionId: string
   userId: string
   role: MessageRole
   content: string
+  metadata?: any // JSON
   isStreaming: boolean
   error: string | null
   tokenCount: number | null
@@ -75,8 +124,20 @@ export interface FileUpload {
   url: string
   status: UploadStatus
   uploadedAt: Date
-  message?: Message
+  message?: ChatMessage
   user?: User
+}
+
+export interface ClassSchedule {
+  id: string
+  courseId: string
+  title: string
+  description: string | null
+  sessionDate: Date
+  sessionType: 'UPCOMING' | 'PAST' | 'CANCELLED'
+  createdAt: Date
+  updatedAt: Date
+  course?: Course
 }
 
 // API Response types
@@ -94,7 +155,7 @@ export interface ChatMessageRequest {
 }
 
 export interface ChatMessageResponse {
-  message: Message
+  message: ChatMessage
   sessionId: string
 }
 
@@ -110,7 +171,7 @@ export interface StreamChunk {
 }
 
 // Client-side message state (for optimistic updates)
-export interface ClientMessage extends Omit<Message, 'id' | 'createdAt' | 'updatedAt'> {
+export interface ClientMessage extends Omit<ChatMessage, 'id' | 'createdAt' | 'updatedAt'> {
   id: string
   createdAt: Date
   updatedAt: Date
@@ -125,4 +186,37 @@ export interface UploadProgress {
   progress: number // 0-100
   status: 'uploading' | 'processing' | 'completed' | 'error'
   error?: string
+}
+
+// Zod validation schemas
+export const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional(),
+})
+
+export const registerSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+})
+
+export type LoginInput = z.infer<typeof loginSchema>
+export type RegisterInput = z.infer<typeof registerSchema>
+
+// Password strength levels
+export enum PasswordStrength {
+  WEAK = 'weak',
+  FAIR = 'fair',
+  GOOD = 'good',
+  STRONG = 'strong',
 }

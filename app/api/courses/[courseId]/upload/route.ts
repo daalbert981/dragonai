@@ -120,7 +120,7 @@ export async function POST(
     // Create temporary message for the upload
     // In a real scenario, this would be associated with a message
     // For now, we'll create a placeholder that will be linked later
-    const tempMessage = await prisma.message.create({
+    const tempMessage = await prisma.chatMessage.create({
       data: {
         sessionId: 'temp', // Will be updated when message is sent
         userId,

@@ -76,7 +76,7 @@ export async function GET(
     }
 
     // Get conversation history (last 10 messages for context)
-    const messages = await prisma.message.findMany({
+    const messages = await prisma.chatMessage.findMany({
       where: { sessionId },
       orderBy: { createdAt: 'desc' },
       take: 10,
@@ -136,7 +136,7 @@ Provide helpful, accurate, and educational responses to student questions.`
       // After streaming is complete, save the assistant message
       tokenCount = estimateTokenCount(fullResponse)
 
-      await prisma.message.create({
+      await prisma.chatMessage.create({
         data: {
           sessionId,
           userId: 'assistant', // Special user ID for assistant
