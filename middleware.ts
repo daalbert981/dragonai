@@ -23,6 +23,12 @@ const dashboardPaths: Record<UserRole, string> = {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // CRITICAL: Allow NextAuth API routes to pass through
+  // Without this, /api/auth/* routes get blocked, breaking authentication
+  if (pathname.startsWith('/api/auth')) {
+    return NextResponse.next()
+  }
+
   // Get the token from the request
   const token = await getToken({
     req: request,
