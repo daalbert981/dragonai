@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MaterialUpload } from '@/components/admin/MaterialUpload';
-import { ArrowLeft, Download, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, Trash2, Loader2, Pencil, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatFileSize } from '@/lib/file-utils';
 
@@ -19,6 +19,9 @@ export default function MaterialsManagementPage({
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const fetchData = async () => {
@@ -91,6 +94,31 @@ export default function MaterialsManagementPage({
       alert(err.message);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleEditDescription = async (materialId: string) => {
+    setSavingId(materialId);
+    try {
+      const response = await fetch(
+        `/api/admin/courses/${params.courseId}/materials/${materialId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: editDescription }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update description');
+      }
+
+      setEditingId(null);
+      await fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -167,10 +195,52 @@ export default function MaterialsManagementPage({
                           <TableCell>
                             <div>
                               <p className="font-medium">{material.originalName}</p>
-                              {material.description && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {material.description}
-                                </p>
+                              {editingId === material.id ? (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <input
+                                    type="text"
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    placeholder="Add a description..."
+                                    className="text-xs border rounded px-2 py-1 flex-1 min-w-0"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleEditDescription(material.id);
+                                      if (e.key === 'Escape') setEditingId(null);
+                                    }}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => handleEditDescription(material.id)}
+                                    disabled={savingId === material.id}
+                                  >
+                                    <Check className="h-3 w-3 text-green-600" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => setEditingId(null)}
+                                    disabled={savingId === material.id}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="flex items-center gap-1 text-xs text-muted-foreground mt-1 hover:text-foreground group"
+                                  onClick={() => {
+                                    setEditingId(material.id);
+                                    setEditDescription(material.description || '');
+                                  }}
+                                >
+                                  {material.description || (
+                                    <span className="italic">No description</span>
+                                  )}
+                                  <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                                </button>
                               )}
                             </div>
                           </TableCell>

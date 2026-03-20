@@ -3,6 +3,62 @@ import { requireRole } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { deleteFile } from '@/lib/gcs';
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { courseId: string; materialId: string } }
+) {
+  try {
+    const session = await requireRole('INSTRUCTOR');
+    const instructorId = parseInt((session.user as any).id);
+
+    const course = await prisma.course.findFirst({
+      where: {
+        id: params.courseId,
+        instructors: { some: { userId: instructorId } },
+      },
+    });
+
+    if (!course) {
+      return NextResponse.json(
+        { error: 'Course not found or access denied' },
+        { status: 404 }
+      );
+    }
+
+    const material = await prisma.courseMaterial.findUnique({
+      where: { id: params.materialId },
+    });
+
+    if (!material || material.courseId !== params.courseId) {
+      return NextResponse.json(
+        { error: 'Material not found' },
+        { status: 404 }
+      );
+    }
+
+    const body = await request.json();
+    const { description } = body;
+
+    const updated = await prisma.courseMaterial.update({
+      where: { id: params.materialId },
+      data: { description: description || null },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    console.error('Error updating material:', error);
+
+    if (error.message === 'Unauthorized' || error.message.includes('Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to update material' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { courseId: string; materialId: string } }
