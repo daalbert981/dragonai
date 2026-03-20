@@ -53,11 +53,11 @@ export async function requireAuth() {
  * Require specific role
  * Throws an error if user doesn't have the required role
  */
-export async function requireRole(role: UserRole) {
+export async function requireRole(role: string) {
   const session = await requireAuth();
   const userRole = (session.user as any).role;
 
-  if (userRole !== role && userRole !== UserRole.SUPERADMIN) {
+  if (userRole !== role && userRole !== 'SUPERADMIN') {
     throw new Error('Forbidden: Insufficient permissions');
   }
 
