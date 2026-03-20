@@ -222,9 +222,14 @@ Your role is to:
 
 IMPORTANT: When providing links to course materials or external resources, ALWAYS format them as markdown links using the syntax [link text](URL). For example: [View the lecture notes](https://example.com/notes.pdf)
 
-Course Description: ${course.description || 'No description available'}${materialsSection}
+Course Description: ${course.description || 'No description available'}
 
 Provide helpful, accurate, and educational responses to student questions. Remember to use markdown formatting for links.`
+
+    // Always append materials section (for both custom and default prompts)
+    if (materialsSection) {
+      baseSystemPrompt += materialsSection
+    }
 
     // Always append syllabus and file context (for both custom and default prompts)
     if (syllabusSection) {
