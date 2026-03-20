@@ -112,10 +112,15 @@ export async function POST(
       )
     }
 
+    // Build the base URL from the request
+    const baseUrl = req.headers.get('x-forwarded-proto') && req.headers.get('host')
+      ? `${req.headers.get('x-forwarded-proto')}://${req.headers.get('host')}`
+      : new URL(req.url).origin
+
     const results = {
       total: students.length,
       enrolled: [] as string[],
-      created: [] as string[],
+      created: [] as { email: string; setupUrl: string }[],
       errors: [] as { email: string; error: string }[]
     }
 
@@ -153,7 +158,10 @@ export async function POST(
             }
           })
 
-          results.created.push(student.email)
+          results.created.push({
+            email: student.email,
+            setupUrl: `${baseUrl}/setup/${setupToken}`
+          })
           console.log(`[BULK UPLOAD] Created new user: ${student.email} with setup token`)
         }
 

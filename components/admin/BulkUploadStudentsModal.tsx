@@ -22,7 +22,7 @@ interface BulkUploadStudentsModalProps {
 interface UploadResult {
   total: number;
   enrolled: string[];
-  created: string[];
+  created: Array<{ email: string; setupUrl: string }>;
   errors: Array<{ email: string; error: string }>;
 }
 
@@ -186,7 +186,7 @@ export function BulkUploadStudentsModal({
                 {result.created.length > 0 && (
                   <div className="flex items-center text-sm">
                     <AlertCircle className="h-4 w-4 mr-2 text-blue-600" />
-                    <span>{result.created.length} new accounts created (students will receive setup instructions)</span>
+                    <span>{result.created.length} new accounts created</span>
                   </div>
                 )}
 
@@ -208,15 +208,65 @@ export function BulkUploadStudentsModal({
               </div>
 
               {result.created.length > 0 && (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
-                    New students need to complete account setup at:{' '}
-                    <strong>{window.location.origin}/setup/[token]</strong>
-                    <br />
-                    Setup tokens are valid for 7 days.
-                  </AlertDescription>
-                </Alert>
+                <>
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      New students need their personal setup link to create a password.
+                      Setup links expire in 7 days. Download the CSV below to email each student their link.
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Setup URLs table */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium">Email</th>
+                          <th className="text-left px-3 py-2 font-medium">Setup Link</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y max-h-48 overflow-y-auto">
+                        {result.created.map((student, idx) => (
+                          <tr key={idx}>
+                            <td className="px-3 py-2">{student.email}</td>
+                            <td className="px-3 py-2">
+                              <button
+                                className="text-xs text-blue-600 hover:underline truncate max-w-[300px] block text-left"
+                                onClick={() => navigator.clipboard.writeText(student.setupUrl)}
+                                title="Click to copy"
+                              >
+                                {student.setupUrl}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Download CSV for mail merge */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const csvContent = 'Email,Setup Link\n' +
+                        result.created.map(s => `${s.email},${s.setupUrl}`).join('\n');
+                      const blob = new Blob([csvContent], { type: 'text/csv' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'student-setup-links.csv';
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Setup Links CSV (for mail merge)
+                  </Button>
+                </>
               )}
             </div>
           )}
