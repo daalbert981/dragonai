@@ -140,7 +140,7 @@ export async function POST(
         url: uploadResult.url,
         status,
         extractedText,
-        parsedData: parsedData ? JSON.stringify(parsedData) : null,
+        parsedData: parsedData ? JSON.stringify(parsedData) : undefined,
         processingError,
         tokenCount
       }

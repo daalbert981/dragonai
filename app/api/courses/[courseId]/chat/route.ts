@@ -40,7 +40,7 @@ export async function POST(
     const userId = (session?.user as any)?.id
 
     if (!userId) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Unauthorized - Please log in'
@@ -53,7 +53,7 @@ export async function POST(
     const hasAccess = await validateCourseAccess(userId, courseId)
 
     if (!hasAccess) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Access denied - You are not enrolled in this course'
@@ -66,7 +66,7 @@ export async function POST(
     const rateLimit = await rateLimiter(userId, 'chat_message', RATE_LIMITS.CHAT_MESSAGE)
 
     if (!rateLimit.allowed) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: `Too many messages. Please try again in ${rateLimit.resetIn} seconds.`
@@ -87,7 +87,7 @@ export async function POST(
     const { content, sessionId, fileIds = [] } = body
 
     if (!content?.trim() && fileIds.length === 0) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Message content or files required'
@@ -102,7 +102,7 @@ export async function POST(
     // Convert userId to Int for database
     const userIdInt = parseInt(userId)
     if (isNaN(userIdInt)) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Invalid user ID'
@@ -121,7 +121,7 @@ export async function POST(
       })
 
       if (!chatSession || chatSession.userId !== userIdInt || chatSession.courseId !== courseId) {
-        return NextResponse.json<ApiResponse>(
+        return NextResponse.json(
           {
             success: false,
             error: 'Invalid session'
@@ -173,14 +173,14 @@ export async function POST(
       })
 
       if (updatedMessage) {
-        return NextResponse.json<ApiResponse<ChatMessageResponse>>(
+        return NextResponse.json(
           {
             success: true,
             data: {
               message: {
                 id: updatedMessage.id,
                 sessionId: updatedMessage.sessionId,
-                userId: updatedMessage.userId,
+                userId: updatedMessage.userId.toString(),
                 role: updatedMessage.role as 'USER' | 'ASSISTANT' | 'SYSTEM',
                 content: updatedMessage.content,
                 isStreaming: false,
@@ -191,7 +191,7 @@ export async function POST(
                 fileUploads: updatedMessage.fileUploads.map(f => ({
                   id: f.id,
                   messageId: f.messageId,
-                  userId: f.userId,
+                  userId: f.userId.toString(),
                   filename: f.filename,
                   originalName: f.originalName,
                   mimeType: f.mimeType,
@@ -210,14 +210,14 @@ export async function POST(
       }
     }
 
-    return NextResponse.json<ApiResponse<ChatMessageResponse>>(
+    return NextResponse.json(
       {
         success: true,
         data: {
           message: {
             id: message.id,
             sessionId: message.sessionId,
-            userId: message.userId,
+            userId: message.userId.toString(),
             role: message.role as 'USER' | 'ASSISTANT' | 'SYSTEM',
             content: message.content,
             isStreaming: false,
@@ -236,7 +236,7 @@ export async function POST(
   } catch (error) {
     console.error('Error creating message:', error)
 
-    return NextResponse.json<ApiResponse>(
+    return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to create message'
@@ -270,7 +270,7 @@ export async function GET(
     const userId = (session?.user as any)?.id
 
     if (!userId) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Unauthorized'
@@ -282,7 +282,7 @@ export async function GET(
     // Convert userId to Int
     const userIdInt = parseInt(userId)
     if (isNaN(userIdInt)) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Invalid user ID'
@@ -292,7 +292,7 @@ export async function GET(
     }
 
     if (!sessionId) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Session ID required'
@@ -307,7 +307,7 @@ export async function GET(
     })
 
     if (!chatSession || chatSession.userId !== userIdInt || chatSession.courseId !== courseId) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Session not found or access denied'
@@ -326,7 +326,7 @@ export async function GET(
       take: limit
     })
 
-    return NextResponse.json<ApiResponse>({
+    return NextResponse.json({
       success: true,
       data: {
         messages: messages.map(m => ({
@@ -335,7 +335,7 @@ export async function GET(
           userId: m.userId,
           role: m.role,
           content: m.content,
-          isStreaming: m.isStreaming,
+          isStreaming: false,
           error: m.error,
           tokenCount: m.tokenCount,
           createdAt: m.createdAt,
@@ -347,7 +347,7 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching messages:', error)
 
-    return NextResponse.json<ApiResponse>(
+    return NextResponse.json(
       {
         success: false,
         error: 'Failed to fetch messages'

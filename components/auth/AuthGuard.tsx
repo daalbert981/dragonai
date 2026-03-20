@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { ReactNode, useEffect } from 'react'
-import { UserRole } from '@prisma/client'
+type UserRole = 'STUDENT' | 'INSTRUCTOR' | 'SUPERADMIN'
 
 interface AuthGuardProps {
   children: ReactNode
@@ -42,7 +42,7 @@ export function AuthGuard({
         SUPERADMIN: '/superadmin/dashboard',
       }
 
-      router.push(dashboardMap[session.user.role])
+      router.push(dashboardMap[session.user.role as UserRole] || '/student')
     }
   }, [session, status, allowedRoles, fallbackUrl, router])
 

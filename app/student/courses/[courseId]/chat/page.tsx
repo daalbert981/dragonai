@@ -63,7 +63,7 @@ export default async function StudentCourseChatPage({
   }
 
   // Get initial messages if session ID is provided
-  let initialMessages = []
+  let initialMessages: any[] = []
 
   if (sessionId) {
     const messages = await prisma.chatMessage.findMany({

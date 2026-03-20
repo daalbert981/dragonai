@@ -30,7 +30,7 @@ export async function GET(
       },
     })
 
-    if (!isInstructor && session.user.classId !== 'SUPERADMIN') {
+    if (!isInstructor && (session.user as any).role !== 'SUPERADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

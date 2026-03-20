@@ -37,7 +37,7 @@ export async function POST(
     const userId = (session?.user as any)?.id as string | undefined
 
     if (!userId) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Unauthorized - Please log in'
@@ -50,7 +50,7 @@ export async function POST(
     const hasAccess = await validateCourseAccess(userId, courseId)
 
     if (!hasAccess) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Access denied - You are not enrolled in this course'
@@ -63,7 +63,7 @@ export async function POST(
     const rateLimit = await rateLimiter(userId, 'file_upload', RATE_LIMITS.FILE_UPLOAD)
 
     if (!rateLimit.allowed) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: `Too many uploads. Please try again in ${rateLimit.resetIn} seconds.`
@@ -84,7 +84,7 @@ export async function POST(
     const file = formData.get('file') as File
 
     if (!file) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'No file provided'
@@ -97,7 +97,7 @@ export async function POST(
     const validation = await validateFile(file)
 
     if (!validation.valid) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: validation.error || 'File validation failed'
@@ -125,10 +125,9 @@ export async function POST(
     const tempMessage = await prisma.chatMessage.create({
       data: {
         sessionId: 'temp', // Will be updated when message is sent
-        userId,
+        userId: parseInt(userId),
         role: 'USER',
-        content: '[File attachment]',
-        isStreaming: false
+        content: '[File attachment]'
       }
     })
 
@@ -136,7 +135,7 @@ export async function POST(
     const fileUpload = await prisma.fileUpload.create({
       data: {
         messageId: tempMessage.id,
-        userId,
+        userId: parseInt(userId),
         filename: uniqueFilename,
         originalName: file.name,
         mimeType: file.type,
@@ -146,7 +145,7 @@ export async function POST(
       }
     })
 
-    return NextResponse.json<ApiResponse<FileUploadResponse>>(
+    return NextResponse.json(
       {
         success: true,
         data: {
@@ -170,7 +169,7 @@ export async function POST(
   } catch (error) {
     console.error('Error uploading file:', error)
 
-    return NextResponse.json<ApiResponse>(
+    return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to upload file'
@@ -195,7 +194,7 @@ export async function DELETE(
     const fileId = searchParams.get('fileId')
 
     if (!fileId) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'File ID required'
@@ -208,7 +207,7 @@ export async function DELETE(
     const userId = (session?.user as any)?.id as string | undefined
 
     if (!userId) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'Unauthorized'
@@ -223,7 +222,7 @@ export async function DELETE(
     })
 
     if (!fileUpload) {
-      return NextResponse.json<ApiResponse>(
+      return NextResponse.json(
         {
           success: false,
           error: 'File not found'
@@ -232,8 +231,8 @@ export async function DELETE(
       )
     }
 
-    if (fileUpload.userId !== userId) {
-      return NextResponse.json<ApiResponse>(
+    if (fileUpload.userId !== parseInt(userId as string)) {
+      return NextResponse.json(
         {
           success: false,
           error: 'Access denied'
@@ -250,14 +249,14 @@ export async function DELETE(
     // Note: In production, you should also delete from blob storage
     // using the del() function from @vercel/blob
 
-    return NextResponse.json<ApiResponse>({
+    return NextResponse.json({
       success: true,
       message: 'File deleted successfully'
     })
   } catch (error) {
     console.error('Error deleting file:', error)
 
-    return NextResponse.json<ApiResponse>(
+    return NextResponse.json(
       {
         success: false,
         error: 'Failed to delete file'

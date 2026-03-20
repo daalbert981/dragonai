@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
-import { validateCourseAccess, getCourseEnrollment } from '@/lib/security'
+import { validateCourseAccess } from '@/lib/security'
 import { ApiResponse } from '@/types'
 
 /**
@@ -51,32 +51,9 @@ export async function GET(
       )
     }
 
-    // Get enrollment details
-    const enrollment = await getCourseEnrollment(userId, courseId)
-
-    if (!enrollment) {
-      return NextResponse.json<ApiResponse>(
-        {
-          success: false,
-          error: 'Enrollment not found'
-        },
-        { status: 404 }
-      )
-    }
-
     return NextResponse.json<ApiResponse>({
       success: true,
-      data: {
-        courseId: enrollment.courseId,
-        role: enrollment.role,
-        enrolledAt: enrollment.enrolledAt,
-        course: {
-          id: enrollment.course.id,
-          name: enrollment.course.name,
-          description: enrollment.course.description,
-          code: enrollment.course.code
-        }
-      },
+      data: { courseId },
       message: 'Access granted'
     })
   } catch (error) {

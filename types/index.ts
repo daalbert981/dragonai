@@ -1,9 +1,11 @@
 // Global type definitions for Dragon AI
 import { z } from 'zod'
-import type { UserRole, CourseRole, MessageRole, UploadStatus } from '@prisma/client'
 
-// Re-export Prisma types
-export type { UserRole, CourseRole, MessageRole, UploadStatus }
+// Role and status types (defined locally since Prisma doesn't export unused enums)
+export type UserRole = 'STUDENT' | 'INSTRUCTOR' | 'SUPERADMIN'
+export type CourseRole = 'STUDENT' | 'TA' | 'INSTRUCTOR'
+export type MessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM'
+export type UploadStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
 
 // NextAuth type extensions
 declare module 'next-auth' {

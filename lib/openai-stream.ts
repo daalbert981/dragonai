@@ -70,7 +70,7 @@ const DEFAULT_CONFIG: StreamConfig = {
 export async function createChatStream(
   messages: ChatCompletionMessageParam[],
   config: StreamConfig = {}
-): Promise<AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>> {
+): Promise<AsyncIterable<any>> {
   const finalConfig = { ...DEFAULT_CONFIG, ...config }
 
   // Prepend system message if provided
@@ -123,7 +123,7 @@ export async function createChatStream(
       try {
         // Try true streaming first
         const stream = await openai.responses.create(responseParams)
-        return stream
+        return stream as any
       } catch (streamError: any) {
         // Check if error is due to organization verification
         const isVerificationError = streamError.code === 'unsupported_value' &&
@@ -138,7 +138,7 @@ export async function createChatStream(
           const fullText = response.output_text || ''
 
           // Convert to stream format by yielding the full response at once
-          async function* convertToStream() {
+          const convertToStream = async function* () {
             yield {
               choices: [{
                 delta: { content: fullText },
@@ -181,7 +181,7 @@ export async function createChatStream(
 
     const stream = await openai.chat.completions.create(baseParams)
 
-    return stream
+    return stream as any
   } catch (error) {
     console.error('Error creating chat stream:', error)
     throw error

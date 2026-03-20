@@ -282,7 +282,7 @@ ${baseSystemPrompt}`
 
     // Wrap the stream to capture content
     const captureStream = async function* () {
-      for await (const event of openaiStream) {
+      for await (const event of openaiStream as AsyncIterable<any>) {
         // Handle both chat completions and Responses API formats
         let delta = ''
         let isFinished = false

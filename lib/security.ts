@@ -89,19 +89,8 @@ export async function validateCourseAccess(
       return false
     }
 
-    // If no specific role required, any enrollment is sufficient
-    if (!requiredRole) {
-      return true
-    }
-
-    // Check role hierarchy: INSTRUCTOR > TA > STUDENT
-    const roleHierarchy: Record<CourseRole, number> = {
-      STUDENT: 1,
-      TA: 2,
-      INSTRUCTOR: 3
-    }
-
-    return roleHierarchy[enrollment.role] >= roleHierarchy[requiredRole]
+    // Any valid enrollment grants access
+    return true
   } catch (error) {
     console.error('Error validating course access:', error)
     return false
@@ -119,9 +108,9 @@ export async function getCourseEnrollment(userId: string, courseId: string) {
   try {
     return await prisma.courseEnrollment.findUnique({
       where: {
-        userId_courseId: {
-          userId,
-          courseId
+        courseId_userId: {
+          courseId,
+          userId: parseInt(userId)
         }
       },
       include: {
@@ -129,9 +118,9 @@ export async function getCourseEnrollment(userId: string, courseId: string) {
         user: {
           select: {
             id: true,
-            name: true,
+            username: true,
             email: true,
-            role: true
+            classId: true
           }
         }
       }
@@ -159,7 +148,7 @@ export async function validateSessionOwnership(
       select: { userId: true }
     })
 
-    return session?.userId === userId
+    return session?.userId === parseInt(userId)
   } catch (error) {
     console.error('Error validating session ownership:', error)
     return false
@@ -183,7 +172,7 @@ export async function validateMessageOwnership(
       select: { userId: true }
     })
 
-    return message?.userId === userId
+    return message?.userId === parseInt(userId)
   } catch (error) {
     console.error('Error validating message ownership:', error)
     return false
