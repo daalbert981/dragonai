@@ -5,8 +5,8 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     // Require instructor role
-    const session = await requireRole('ADMIN');
-    const userId = (session.user as any).id;
+    const session = await requireRole('INSTRUCTOR');
+    const userId = parseInt((session.user as any).id);
 
     // Get all courses where user is an instructor
     const courses = await prisma.course.findMany({
@@ -29,7 +29,7 @@ export async function GET() {
             user: {
               select: {
                 id: true,
-                name: true,
+                username: true,
                 email: true,
               },
             },

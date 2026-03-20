@@ -12,47 +12,63 @@ datasource db {
 
 // User model for authentication
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          UserRole  @default(STUDENT)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                 Int       @id @default(autoincrement())
+  username           String    @unique
+  email              String?   @unique
+  password           String?   @map("password_hash")
+  classId            String    @map("class_id")
+  setupToken         String?   @unique @map("setup_token")
+  setupTokenExpiry   DateTime? @map("setup_token_expiry")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // Virtual field for compatibility - will be populated from classId
+  // Note: We'll need to handle role mapping in the auth logic
 
   // Relations
   instructorCourses CourseInstructor[]
   enrollments       CourseEnrollment[]
+
+  @@map("user")
 }
 
 // Course model
 model Course {
-  id          String   @id @default(cuid())
-  name        String
-  code        String   @unique
-  description String?
-  syllabus    String?
-  systemPrompt String?
-  model       String   @default("gpt-4-turbo")
-  temperature Float    @default(0.7)
-  reasoningLevel String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  name                 String
+  code                 String   @unique
+  description          String?  @db.Text
+  syllabus             String?  @db.Text
+  syllabusSynthesisPrompt String? @map("syllabus_synthesis_prompt") @db.Text
+  systemPrompt         String?  @map("system_prompt") @db.Text
+  priorClasses         String?  @map("prior_classes") @db.Text
+  upcomingClasses      String?  @map("upcoming_classes") @db.Text
+  model                String   @default("gpt-5.4-mini")
+  temperature          Float    @default(0.7)
+  timezone             String   @default("America/New_York")
+  reasoningLevel       String?  @map("reasoning_level")
+  messageHistoryLimit  Int      @default(10) @map("message_history_limit")
+  sessionRetentionPolicy String @default("forever") @map("session_retention_policy") // "forever", "never", "custom"
+  sessionRetentionDays Int?     @map("session_retention_days") // null for forever/never, number for custom
+  sessionRetentionHours Int?    @map("session_retention_hours") // additional hours for custom retention
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   // Relations
   instructors  CourseInstructor[]
   enrollments  CourseEnrollment[]
   materials    CourseMaterial[]
+
+  @@map("course")
 }
 
 // Join table for Course-Instructor relationship
 model CourseInstructor {
   id         String   @id @default(cuid())
-  courseId   String
-  userId     String
-  assignedAt DateTime @default(now())
+  courseId   String   @map("course_id")
+  userId     Int      @map("user_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
 
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -60,14 +76,15 @@ model CourseInstructor {
   @@unique([courseId, userId])
   @@index([courseId])
   @@index([userId])
+  @@map("course_instructor")
 }
 
 // Course enrollment model
 model CourseEnrollment {
   id         String   @id @default(cuid())
-  courseId   String
-  userId     String
-  enrolledAt DateTime @default(now())
+  courseId   String   @map("course_id")
+  userId     Int      @map("user_id")
+  enrolledAt DateTime @default(now()) @map("enrolled_at")
 
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -75,27 +92,110 @@ model CourseEnrollment {
   @@unique([courseId, userId])
   @@index([courseId])
   @@index([userId])
+  @@map("course_enrollment")
 }
 
 // Course material model
 model CourseMaterial {
-  id          String   @id @default(cuid())
-  courseId    String
-  filename    String
-  originalName String
-  fileSize    Int
-  mimeType    String?
-  storageUrl  String
-  description String?
-  uploadedAt  DateTime @default(now())
+  id                String   @id @default(cuid())
+  courseId          String   @map("course_id")
+  filename          String
+  originalName      String   @map("original_name")
+  fileSize          Int      @map("file_size")
+  mimeType          String?  @map("mime_type")
+  storageUrl        String   @map("storage_url")
+  description       String?
+  aiSummary         String?  @map("ai_summary")
+  uploadedAt        DateTime @default(now()) @map("uploaded_at")
 
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
+  @@map("course_material")
 }
+
+// Chat session model
+model ChatSession {
+  id         String   @id @default(cuid())
+  userId     Int      @map("user_id")
+  courseId   String   @map("course_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  messages   ChatMessage[]
+
+  @@index([userId])
+  @@index([courseId])
+  @@map("chat_session")
+}
+
+// Chat message model
+model ChatMessage {
+  id          String   @id @default(cuid())
+  sessionId   String   @map("session_id")
+  userId      Int      @map("user_id")
+  role        String   // USER, ASSISTANT, SYSTEM
+  content     String   @db.Text
+  tokenCount  Int?     @map("token_count")
+  error       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  fileUploads FileUpload[]
+
+  @@index([sessionId])
+  @@index([userId])
+  @@map("chat_message")
+}
+
+// File upload model (for chat attachments)
+model FileUpload {
+  id              String   @id @default(cuid())
+  messageId       String?  @map("message_id")
+  userId          Int      @map("user_id")
+  filename        String
+  originalName    String   @map("original_name")
+  mimeType        String?  @map("mime_type")
+  size            Int
+  url             String
+  status          String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+
+  // Parsed content fields
+  extractedText   String?  @map("extracted_text") @db.Text
+  parsedData      Json?    @map("parsed_data")
+  processingError String?  @map("processing_error") @db.Text
+  tokenCount      Int?     @map("token_count")
+
+  uploadedAt      DateTime @default(now()) @map("uploaded_at")
+
+  message ChatMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([userId])
+  @@map("file_upload")
+}
+
+// Class schedule model
+model ClassSchedule {
+  id          String   @id @default(cuid())
+  courseId    String   @map("course_id")
+  title       String
+  description String?  @db.Text
+  sessionDate DateTime @map("session_date")
+  sessionType String   @map("session_type") // UPCOMING, PAST
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([courseId])
+  @@index([sessionDate])
+  @@map("class_schedule")
+}
+
+// Add isActive field to Course model (needed for the code)
+// Note: This will be added via migration
 
 enum UserRole {
   STUDENT
-  ADMIN
+  INSTRUCTOR
   SUPERADMIN
 }

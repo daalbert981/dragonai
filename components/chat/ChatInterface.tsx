@@ -28,6 +28,11 @@ interface ChatInterfaceProps {
    * User ID
    */
   userId: string
+
+  /**
+   * Callback to clear and start a new chat
+   */
+  onNewChat?: () => void
 }
 
 /**
@@ -37,7 +42,8 @@ export function ChatInterface({
   courseId,
   sessionId: initialSessionId,
   initialMessages = [],
-  userId
+  userId,
+  onNewChat
 }: ChatInterfaceProps) {
   // State
   const [messages, setMessages] = useState<ClientMessage[]>(initialMessages)
@@ -46,7 +52,28 @@ export function ChatInterface({
   const [isSending, setIsSending] = useState(false)
   const [sessionId, setSessionId] = useState(initialSessionId)
   const [uploadedFileIds, setUploadedFileIds] = useState<string[]>([])
+  const [uploadComponentKey, setUploadComponentKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
+
+  /**
+   * Update messages and sessionId when props change (e.g., switching sessions)
+   */
+  useEffect(() => {
+    setMessages(initialMessages)
+    setSessionId(initialSessionId)
+  }, [initialMessages, initialSessionId])
+
+  /**
+   * Clear current chat and start fresh
+   */
+  const handleNewChat = useCallback(() => {
+    setMessages([])
+    setSessionId(undefined)
+    setInputValue('')
+    setUploadedFileIds([])
+    setError(null)
+    onNewChat?.()
+  }, [onNewChat])
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -99,9 +126,10 @@ export function ChatInterface({
     // Add optimistic message to UI
     setMessages(prev => [...prev, userMessage])
 
-    // Clear input
+    // Clear input and reset file upload component
     setInputValue('')
     setUploadedFileIds([])
+    setUploadComponentKey(prev => prev + 1)
 
     try {
       // Send message to API
@@ -124,21 +152,21 @@ export function ChatInterface({
       const data = await response.json()
 
       // Update session ID if new
-      if (data.sessionId && !sessionId) {
-        setSessionId(data.sessionId)
+      if (data.data?.sessionId && !sessionId) {
+        setSessionId(data.data.sessionId)
       }
 
       // Replace optimistic message with real one
       setMessages(prev =>
         prev.map(msg =>
           msg.id === userMessage.id
-            ? { ...data.message, isOptimistic: false }
+            ? { ...data.data.message, isOptimistic: false }
             : msg
         )
       )
 
       // Start streaming assistant response
-      await streamAssistantResponse(data.sessionId)
+      await streamAssistantResponse(data.data.sessionId)
     } catch (error) {
       console.error('Error sending message:', error)
 
@@ -393,17 +421,16 @@ export function ChatInterface({
         </div>
 
         {/* Input area */}
-        <div className="border-t border-border bg-background p-4">
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {/* File upload */}
-            {uploadedFileIds.length === 0 && (
-              <FileUpload
-                courseId={courseId}
-                onFilesUploaded={handleFilesUploaded}
-                onError={setError}
-                disabled={isSending || isStreaming}
-              />
-            )}
+        <div className="border-t border-border bg-background p-2 sm:p-4">
+          <form onSubmit={handleSubmit} className="space-y-2">
+            {/* File upload - always visible */}
+            <FileUpload
+              key={uploadComponentKey}
+              courseId={courseId}
+              onFilesUploaded={handleFilesUploaded}
+              onError={setError}
+              disabled={isSending || isStreaming}
+            />
 
             {/* Message input */}
             <div className="flex gap-2 items-end">
@@ -413,13 +440,13 @@ export function ChatInterface({
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Type your message... (Shift+Enter for new line)"
+                  placeholder="Type your message..."
                   disabled={isSending || isStreaming}
                   className={cn(
-                    'w-full px-4 py-3 pr-12 rounded-lg border border-border',
+                    'w-full px-3 sm:px-4 py-3 rounded-lg border border-border',
                     'bg-background text-foreground placeholder:text-muted-foreground',
                     'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
-                    'resize-none min-h-[52px] max-h-[200px]',
+                    'resize-none min-h-[44px] sm:min-h-[52px] max-h-[200px] text-base',
                     'disabled:opacity-50 disabled:cursor-not-allowed'
                   )}
                   rows={1}
@@ -431,7 +458,7 @@ export function ChatInterface({
                 <button
                   type="button"
                   onClick={stopStreaming}
-                  className="flex-shrink-0 p-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                  className="flex-shrink-0 h-11 w-11 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
                   title="Stop generating"
                 >
                   <StopCircle className="h-5 w-5" />
@@ -441,7 +468,7 @@ export function ChatInterface({
                   type="submit"
                   disabled={(!inputValue.trim() && uploadedFileIds.length === 0) || isSending}
                   className={cn(
-                    'flex-shrink-0 p-3 rounded-lg transition-colors',
+                    'flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-lg transition-colors',
                     'bg-primary hover:bg-primary/90 text-primary-foreground',
                     'disabled:opacity-50 disabled:cursor-not-allowed'
                   )}

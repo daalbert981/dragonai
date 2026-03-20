@@ -5,6 +5,7 @@ import { Upload, X, FileText, Image as ImageIcon, AlertCircle, Loader2, CheckCir
 import { validateFile } from '@/lib/file-validation'
 import { UploadProgress } from '@/types'
 import { cn } from '@/lib/utils'
+import { extractTextFromPDF, isPDF } from '@/lib/pdf-extractor-client'
 
 interface FileUploadProps {
   /**
@@ -99,11 +100,60 @@ export function FileUpload({
    */
   const uploadFile = async (uploadedFile: UploadedFile) => {
     try {
+      // Check if PDF and extract text client-side
+      let extractedText: string | undefined
+
+      if (isPDF(uploadedFile.file)) {
+        // Update status to extracting
+        setFiles(prev =>
+          prev.map(f =>
+            f.id === uploadedFile.id
+              ? {
+                  ...f,
+                  progress: {
+                    ...f.progress,
+                    status: 'uploading',
+                    progress: 0
+                  }
+                }
+              : f
+          )
+        )
+
+        // Extract PDF text
+        const result = await extractTextFromPDF(
+          uploadedFile.file,
+          (progress) => {
+            // Update progress during extraction (0-50% for extraction)
+            setFiles(prev =>
+              prev.map(f =>
+                f.id === uploadedFile.id
+                  ? {
+                      ...f,
+                      progress: {
+                        ...f.progress,
+                        progress: Math.round(progress / 2) // 0-50%
+                      }
+                    }
+                  : f
+              )
+            )
+          }
+        )
+
+        if (result.error) {
+          console.warn('PDF extraction failed:', result.error)
+          // Continue with upload even if extraction fails
+        } else {
+          extractedText = result.text
+        }
+      }
+
       // Update status to uploading
       setFiles(prev =>
         prev.map(f =>
           f.id === uploadedFile.id
-            ? { ...f, progress: { ...f.progress, status: 'uploading' } }
+            ? { ...f, progress: { ...f.progress, status: 'uploading', progress: isPDF(uploadedFile.file) ? 50 : 0 } }
             : f
         )
       )
@@ -113,17 +163,26 @@ export function FileUpload({
       formData.append('file', uploadedFile.file)
       formData.append('courseId', courseId)
 
+      // Add extracted text if available
+      if (extractedText) {
+        formData.append('extractedText', extractedText)
+      }
+
       // Upload with progress tracking
       const xhr = new XMLHttpRequest()
 
       // Track upload progress
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
-          const progress = Math.round((e.loaded / e.total) * 100)
+          const uploadProgress = Math.round((e.loaded / e.total) * 100)
+          // For PDFs, map upload progress to 50-100% (since 0-50% was extraction)
+          const totalProgress = isPDF(uploadedFile.file)
+            ? 50 + Math.round(uploadProgress / 2)
+            : uploadProgress
           setFiles(prev =>
             prev.map(f =>
               f.id === uploadedFile.id
-                ? { ...f, progress: { ...f.progress, progress } }
+                ? { ...f, progress: { ...f.progress, progress: totalProgress } }
                 : f
             )
           )
@@ -132,29 +191,35 @@ export function FileUpload({
 
       // Handle completion
       xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
+        if (xhr.status === 200 || xhr.status === 201) {
           const response = JSON.parse(xhr.responseText)
 
-          setFiles(prev =>
-            prev.map(f =>
-              f.id === uploadedFile.id
-                ? {
-                    ...f,
-                    progress: {
-                      ...f.progress,
-                      fileId: response.data.fileUpload.id,
-                      progress: 100,
-                      status: 'completed'
+          // Handle successful response
+          if (response.success && response.file) {
+            setFiles(prev =>
+              prev.map(f =>
+                f.id === uploadedFile.id
+                  ? {
+                      ...f,
+                      progress: {
+                        ...f.progress,
+                        fileId: response.file.id,
+                        progress: 100,
+                        status: 'completed'
+                      }
                     }
-                  }
-                : f
+                  : f
+              )
             )
-          )
 
-          // Notify parent of uploaded file ID
-          onFilesUploaded([response.data.fileUpload.id])
+            // Notify parent of uploaded file ID
+            onFilesUploaded([response.file.id])
+          } else {
+            throw new Error(response.error || 'Upload failed')
+          }
         } else {
-          throw new Error('Upload failed')
+          const response = JSON.parse(xhr.responseText)
+          throw new Error(response.error || 'Upload failed')
         }
       })
 
@@ -178,7 +243,7 @@ export function FileUpload({
       })
 
       // Send request
-      xhr.open('POST', `/api/courses/${courseId}/upload`)
+      xhr.open('POST', `/api/courses/${courseId}/files/upload`)
       xhr.send(formData)
     } catch (error) {
       console.error('Upload error:', error)
@@ -245,14 +310,14 @@ export function FileUpload({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Upload area */}
       <div
         className={cn(
-          'relative border-2 border-dashed rounded-lg transition-colors',
+          'relative border border-dashed rounded transition-colors',
           isDragging
             ? 'border-primary bg-primary/5'
-            : 'border-border hover:border-primary/50',
+            : 'border-border/50 hover:border-border',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
         onDragEnter={handleDragEnter}
@@ -273,15 +338,14 @@ export function FileUpload({
         <button
           onClick={openFilePicker}
           disabled={disabled}
-          className="w-full p-6 text-center hover:bg-muted/50 transition-colors rounded-lg disabled:cursor-not-allowed"
+          className="w-full px-3 py-2 text-left hover:bg-muted/30 transition-colors rounded disabled:cursor-not-allowed flex items-center gap-2"
         >
-          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground">
-            Click to upload or drag and drop
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Images, documents, or code files (max {maxFiles} files)
-          </p>
+          <Upload className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground">
+              Upload files (images, PDFs, documents)
+            </p>
+          </div>
         </button>
       </div>
 

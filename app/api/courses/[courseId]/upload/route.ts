@@ -10,6 +10,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { prisma } from '@/lib/prisma'
 import { validateCourseAccess } from '@/lib/security'
 import { validateFile, generateUniqueFilename } from '@/lib/file-validation'
@@ -31,8 +33,8 @@ export async function POST(
   try {
     const { courseId } = params
 
-    // TODO: Get user ID from session
-    const userId = request.headers.get('x-user-id')
+    const session = await getServerSession(authOptions)
+    const userId = (session?.user as any)?.id as string | undefined
 
     if (!userId) {
       return NextResponse.json<ApiResponse>(
@@ -202,8 +204,8 @@ export async function DELETE(
       )
     }
 
-    // TODO: Get user ID from session
-    const userId = request.headers.get('x-user-id')
+    const session = await getServerSession(authOptions)
+    const userId = (session?.user as any)?.id as string | undefined
 
     if (!userId) {
       return NextResponse.json<ApiResponse>(

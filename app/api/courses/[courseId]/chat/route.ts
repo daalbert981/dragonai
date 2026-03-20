@@ -6,9 +6,12 @@
  * - Rate limiting
  * - Session management
  * - File attachment linking
+ * Updated: Fixed isStreaming field issue
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { prisma } from '@/lib/prisma'
 import { validateCourseAccess } from '@/lib/security'
 import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limit'
@@ -32,8 +35,9 @@ export async function POST(
   try {
     const { courseId } = params
 
-    // TODO: Get user ID from session
-    const userId = request.headers.get('x-user-id')
+    // Get user from session
+    const session = await getServerSession(authOptions)
+    const userId = (session?.user as any)?.id
 
     if (!userId) {
       return NextResponse.json<ApiResponse>(
@@ -95,6 +99,18 @@ export async function POST(
     // Sanitize input
     const sanitizedContent = sanitizeInput(content || '')
 
+    // Convert userId to Int for database
+    const userIdInt = parseInt(userId)
+    if (isNaN(userIdInt)) {
+      return NextResponse.json<ApiResponse>(
+        {
+          success: false,
+          error: 'Invalid user ID'
+        },
+        { status: 400 }
+      )
+    }
+
     // Get or create session
     let chatSession
 
@@ -104,7 +120,7 @@ export async function POST(
         where: { id: sessionId }
       })
 
-      if (!chatSession || chatSession.userId !== userId || chatSession.courseId !== courseId) {
+      if (!chatSession || chatSession.userId !== userIdInt || chatSession.courseId !== courseId) {
         return NextResponse.json<ApiResponse>(
           {
             success: false,
@@ -117,9 +133,8 @@ export async function POST(
       // Create new session
       chatSession = await prisma.chatSession.create({
         data: {
-          userId,
-          courseId,
-          title: sanitizedContent.substring(0, 50) + (sanitizedContent.length > 50 ? '...' : '')
+          userId: userIdInt,
+          courseId
         }
       })
     }
@@ -128,10 +143,9 @@ export async function POST(
     const message = await prisma.chatMessage.create({
       data: {
         sessionId: chatSession.id,
-        userId,
+        userId: userIdInt,
         role: 'USER',
-        content: sanitizedContent,
-        isStreaming: false
+        content: sanitizedContent
       },
       include: {
         fileUploads: true
@@ -143,7 +157,7 @@ export async function POST(
       await prisma.fileUpload.updateMany({
         where: {
           id: { in: fileIds },
-          userId // Security: ensure files belong to user
+          userId: userIdInt // Security: ensure files belong to user
         },
         data: {
           messageId: message.id
@@ -169,7 +183,7 @@ export async function POST(
                 userId: updatedMessage.userId,
                 role: updatedMessage.role as 'USER' | 'ASSISTANT' | 'SYSTEM',
                 content: updatedMessage.content,
-                isStreaming: updatedMessage.isStreaming,
+                isStreaming: false,
                 error: updatedMessage.error,
                 tokenCount: updatedMessage.tokenCount,
                 createdAt: updatedMessage.createdAt,
@@ -206,7 +220,7 @@ export async function POST(
             userId: message.userId,
             role: message.role as 'USER' | 'ASSISTANT' | 'SYSTEM',
             content: message.content,
-            isStreaming: message.isStreaming,
+            isStreaming: false,
             error: message.error,
             tokenCount: message.tokenCount,
             createdAt: message.createdAt,
@@ -251,8 +265,9 @@ export async function GET(
     const sessionId = searchParams.get('sessionId')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // TODO: Get user ID from session
-    const userId = request.headers.get('x-user-id')
+    // Get user from session
+    const session = await getServerSession(authOptions)
+    const userId = (session?.user as any)?.id
 
     if (!userId) {
       return NextResponse.json<ApiResponse>(
@@ -261,6 +276,18 @@ export async function GET(
           error: 'Unauthorized'
         },
         { status: 401 }
+      )
+    }
+
+    // Convert userId to Int
+    const userIdInt = parseInt(userId)
+    if (isNaN(userIdInt)) {
+      return NextResponse.json<ApiResponse>(
+        {
+          success: false,
+          error: 'Invalid user ID'
+        },
+        { status: 400 }
       )
     }
 
@@ -275,11 +302,11 @@ export async function GET(
     }
 
     // Verify session access
-    const session = await prisma.chatSession.findUnique({
+    const chatSession = await prisma.chatSession.findUnique({
       where: { id: sessionId }
     })
 
-    if (!session || session.userId !== userId || session.courseId !== courseId) {
+    if (!chatSession || chatSession.userId !== userIdInt || chatSession.courseId !== courseId) {
       return NextResponse.json<ApiResponse>(
         {
           success: false,

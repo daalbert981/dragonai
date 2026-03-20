@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { MaterialUpload } from '@/components/admin/MaterialUpload';
 import { ArrowLeft, Download, Trash2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { formatFileSize } from '@/lib/gcs';
+import { formatFileSize } from '@/lib/file-utils';
 
 export default function MaterialsManagementPage({
   params,
@@ -125,9 +125,9 @@ export default function MaterialsManagementPage({
         </Button>
       </Link>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Course Materials</h1>
-        <p className="text-muted-foreground">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Course Materials</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
           {course.name} ({course.code})
         </p>
       </div>
@@ -151,7 +151,7 @@ export default function MaterialsManagementPage({
                   No materials uploaded yet
                 </div>
               ) : (
-                <div className="border rounded-lg">
+                <div className="border rounded-lg overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>

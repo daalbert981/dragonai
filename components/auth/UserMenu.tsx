@@ -3,7 +3,7 @@
 import { useSession, signOut } from 'next-auth/react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Avatar from '@radix-ui/react-avatar'
-import { LogOut, User, Settings } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export function UserMenu() {
@@ -88,14 +88,6 @@ export function UserMenu() {
           </div>
 
           {/* Menu Items */}
-          <DropdownMenu.Item
-            className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-gray-700 outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100"
-            onSelect={() => router.push('/profile')}
-          >
-            <User className="h-4 w-4" />
-            <span>Profile</span>
-          </DropdownMenu.Item>
-
           <DropdownMenu.Item
             className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-gray-700 outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100"
             onSelect={() => router.push('/settings')}

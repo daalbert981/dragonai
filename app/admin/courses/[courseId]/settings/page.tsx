@@ -1,109 +1,60 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { requireRole } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { DashboardHeader } from '@/components/DashboardHeader';
+import { CourseSettingsForm } from '@/components/admin/CourseSettingsForm';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { ModelConfigPanel } from '@/components/admin/ModelConfigPanel';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+async function getCourse(courseId: string, userId: number, role: string) {
+  // Superadmins can access any course
+  if (role === 'SUPERADMIN') {
+    return prisma.course.findUnique({ where: { id: courseId } });
+  }
+  // Instructors can only access their own courses
+  return prisma.course.findFirst({
+    where: {
+      id: courseId,
+      instructors: { some: { userId } },
+    },
+  });
+}
 
-export default function CourseSettingsPage({
+export default async function CourseSettingsPage({
   params,
 }: {
   params: { courseId: string };
 }) {
-  const router = useRouter();
-  const [course, setCourse] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const fetchCourse = async () => {
-    try {
-      const response = await fetch(`/api/admin/courses/${params.courseId}`);
-      if (!response.ok) throw new Error('Failed to fetch course');
-      const data = await response.json();
-      setCourse(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCourse();
-  }, [params.courseId]);
-
-  const handleSave = async (config: {
-    systemPrompt: string;
-    model: string;
-    temperature: number;
-    reasoningLevel: string;
-    syllabus: string;
-  }) => {
-    const response = await fetch(`/api/admin/courses/${params.courseId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
-    });
-
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || 'Failed to update settings');
-    }
-
-    await fetchCourse();
-    alert('Settings saved successfully!');
-  };
-
-  if (loading) {
-    return (
-      <div className="container mx-auto py-8 px-4 flex justify-center items-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+  let session;
+  try {
+    session = await requireRole('INSTRUCTOR');
+  } catch (error) {
+    redirect('/login');
   }
 
-  if (error || !course) {
-    return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="text-center py-16">
-          <h3 className="text-lg font-semibold mb-2">Error</h3>
-          <p className="text-muted-foreground mb-6">{error || 'Course not found'}</p>
-          <Link href="/admin">
-            <Button>Back to Dashboard</Button>
-          </Link>
-        </div>
-      </div>
-    );
+  const userId = parseInt((session.user as any).id);
+  const userRole = (session.user as any).role;
+  const course = await getCourse(params.courseId, userId, userRole);
+
+  if (!course) {
+    redirect('/admin');
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <Link href={`/admin/courses/${params.courseId}`}>
-        <Button variant="ghost" className="mb-6">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Course
-        </Button>
-      </Link>
-
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Course Settings</h1>
-        <p className="text-muted-foreground">
-          {course.name} ({course.code})
-        </p>
-      </div>
-
-      <ModelConfigPanel
-        initialConfig={{
-          systemPrompt: course.systemPrompt,
-          model: course.model,
-          temperature: course.temperature,
-          reasoningLevel: course.reasoningLevel,
-          syllabus: course.syllabus,
-        }}
-        onSave={handleSave}
+    <>
+      <DashboardHeader
+        userName={session?.user?.name}
+        userEmail={session?.user?.email}
+        userRole={(session?.user as any)?.role}
       />
-    </div>
+      <div className="container mx-auto py-6 sm:py-8 px-3 sm:px-4">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">Course Settings</h1>
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
+            Configure course details and AI assistant behavior
+          </p>
+        </div>
+
+        <CourseSettingsForm course={course} />
+      </div>
+    </>
   );
 }

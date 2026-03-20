@@ -13,6 +13,8 @@
 'use client'
 
 import React, { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Copy, RefreshCw, Check, AlertCircle, Loader2, User, Bot, FileText } from 'lucide-react'
 import { ClientMessage, FileUpload } from '@/types'
 import { MessageErrorFallback } from './ErrorBoundary'
@@ -145,9 +147,34 @@ export function ChatMessage({
             </div>
           )}
 
-          {/* Message text */}
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <p className="whitespace-pre-wrap">{message.content}</p>
+          {/* Message text with markdown support */}
+          <div className="prose prose-sm dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // Open links in new window with explicit styling
+                a: ({ node, ...props }) => (
+                  <a
+                    {...props}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: '#2563eb',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      fontWeight: '500'
+                    }}
+                    className="hover:text-blue-700 dark:hover:text-blue-300"
+                  />
+                ),
+                // Preserve whitespace for code blocks
+                p: ({ node, ...props }) => (
+                  <p {...props} className="whitespace-pre-wrap mb-2 last:mb-0" />
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
           </div>
 
           {/* File attachments */}

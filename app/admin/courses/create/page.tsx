@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 
 export default function CreateCoursePage() {
@@ -18,6 +19,7 @@ export default function CreateCoursePage() {
     name: '',
     code: '',
     description: '',
+    timezone: 'America/New_York',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,6 +114,34 @@ export default function CreateCoursePage() {
                 onChange={handleChange}
                 rows={4}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="timezone">Timezone *</Label>
+              <Select
+                value={formData.timezone}
+                onValueChange={(value) => setFormData({ ...formData, timezone: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                  <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                  <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                  <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+                  <SelectItem value="America/Anchorage">Alaska Time (AKT)</SelectItem>
+                  <SelectItem value="Pacific/Honolulu">Hawaii Time (HST)</SelectItem>
+                  <SelectItem value="Europe/London">London (GMT/BST)</SelectItem>
+                  <SelectItem value="Europe/Paris">Paris (CET)</SelectItem>
+                  <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
+                  <SelectItem value="Asia/Shanghai">Shanghai (CST)</SelectItem>
+                  <SelectItem value="Australia/Sydney">Sydney (AEDT)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                The LLM will be aware of the current date/time in this timezone
+              </p>
             </div>
 
             {error && (

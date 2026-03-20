@@ -1,12 +1,9 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prisma } from '@/lib/prisma'
 import * as bcrypt from 'bcryptjs'
-import { UserRole } from '@prisma/client'
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -38,13 +35,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid credentials')
         }
 
+        // Map classId to role
+        const role = user.classId === 'admin' || user.classId === 'superadmin' ? 'SUPERADMIN' :
+                     user.classId === 'instructor' ? 'INSTRUCTOR' : 'STUDENT'
+
         return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          image: user.image,
-        }
+          id: user.id.toString(),
+          email: user.email || '',
+          name: user.username,
+          role: role,
+        };
       },
     }),
   ],
@@ -58,10 +58,10 @@ export const authOptions: NextAuthOptions = {
     error: '/login',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id
-        token.role = user.role
+        token.role = (user as any).role
         token.email = user.email
         token.name = user.name
       }
@@ -69,12 +69,27 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as UserRole
-        session.user.email = token.email as string
-        session.user.name = token.name as string | null
+        const user = session.user as any;
+        user.id = token.id;
+        user.role = token.role;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string | null;
       }
-      return session
+      return session;
+    },
+  },
+  // Additional session configuration for production stability
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production'
+        ? `__Secure-next-auth.session-token`
+        : `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
     },
   },
   secret: process.env.NEXTAUTH_SECRET,

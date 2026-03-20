@@ -14,9 +14,11 @@ import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { ChatInterface } from '@/components/chat/ChatInterface'
+import { ChatHeader } from '@/components/chat/ChatHeader'
 import { prisma } from '@/lib/prisma'
 import { validateCourseAccess } from '@/lib/security'
-import { MessageSquare, Loader2, BookOpen, AlertCircle } from 'lucide-react'
+import { MessageSquare, Loader2, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
 
 interface CourseChatePageProps {
   params: {
@@ -102,39 +104,18 @@ export default async function StudentCourseChatPage({
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center px-4">
-          {/* Course info */}
-          <div className="flex items-center gap-3 flex-1">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-              <BookOpen className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">
-                {course.name}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {course.code} • AI Assistant
-              </p>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            <button
-              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => window.history.back()}
-            >
-              Back to Course
-            </button>
-          </div>
-        </div>
-      </header>
+      <ChatHeader
+        courseName={course.name}
+        courseCode={course.code}
+        courseId={courseId}
+        sessionId={sessionId}
+      />
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
         <Suspense fallback={<ChatLoadingState />}>
           <ChatInterface
+            key={sessionId || 'new-chat'}
             courseId={courseId}
             sessionId={sessionId}
             initialMessages={initialMessages}
@@ -174,8 +155,9 @@ function ChatLoadingState() {
 
 /**
  * Error state for access denied
+ * Note: Currently not used as the page redirects instead
  */
-export function AccessDeniedState() {
+function AccessDeniedState() {
   return (
     <div className="flex items-center justify-center h-screen">
       <div className="text-center space-y-4 max-w-md p-8">
@@ -188,12 +170,12 @@ export function AccessDeniedState() {
         <p className="text-muted-foreground">
           You don't have permission to access this course chat. Please contact your instructor if you believe this is an error.
         </p>
-        <button
-          onClick={() => window.location.href = '/student'}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+        <Link
+          href="/student"
+          className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
         >
           Back to Dashboard
-        </button>
+        </Link>
       </div>
     </div>
   )

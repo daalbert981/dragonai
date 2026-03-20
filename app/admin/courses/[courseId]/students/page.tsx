@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { StudentTable } from '@/components/admin/StudentTable';
 import { AddStudentModal } from '@/components/admin/AddStudentModal';
+import { BulkUploadStudentsModal } from '@/components/admin/BulkUploadStudentsModal';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function StudentsManagementPage({
@@ -36,19 +37,24 @@ export default function StudentsManagementPage({
     fetchCourse();
   }, [params.courseId]);
 
-  const handleAddStudent = async (email: string) => {
+  const handleAddStudent = async (data: {
+    email: string;
+    username?: string;
+    password?: string;
+    createNew?: boolean;
+  }) => {
     const response = await fetch(
       `/api/admin/courses/${params.courseId}/students`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(data),
       }
     );
 
     if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || 'Failed to add student');
+      const responseData = await response.json();
+      throw new Error(responseData.error || 'Failed to add student');
     }
 
     await fetchCourse();
@@ -100,23 +106,29 @@ export default function StudentsManagementPage({
         </Button>
       </Link>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Student Management</h1>
-        <p className="text-muted-foreground">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Student Management</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
           {course.name} ({course.code})
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <div>
               <CardTitle>Enrolled Students</CardTitle>
               <CardDescription>
                 Manage students enrolled in this course
               </CardDescription>
             </div>
-            <AddStudentModal onAddStudent={handleAddStudent} />
+            <div className="flex gap-2 flex-shrink-0">
+              <BulkUploadStudentsModal
+                courseId={params.courseId}
+                onUploadComplete={fetchCourse}
+              />
+              <AddStudentModal courseId={params.courseId} onAddStudent={handleAddStudent} />
+            </div>
           </div>
         </CardHeader>
         <CardContent>

@@ -24,8 +24,15 @@ export interface StreamConfig {
 
   /**
    * Temperature for response generation (0-2)
+   * Not used for o1 models (use reasoningEffort instead)
    */
   temperature?: number
+
+  /**
+   * Reasoning effort for reasoning models ('minimal', 'low', 'medium', 'high')
+   * Replaces temperature for o1 and GPT-5 models
+   */
+  reasoningEffort?: string
 
   /**
    * Maximum tokens in response
@@ -47,7 +54,7 @@ export interface StreamConfig {
  * Default streaming configuration
  */
 const DEFAULT_CONFIG: StreamConfig = {
-  model: 'gpt-4-turbo-preview',
+  model: 'gpt-5.4-mini',
   temperature: 0.7,
   maxTokens: 2000,
   systemPrompt: 'You are a helpful AI teaching assistant. Provide clear, educational responses to student questions.'
@@ -74,15 +81,105 @@ export async function createChatStream(
       ]
     : messages
 
+  // Determine model type for parameter handling
+  const isOSeriesModel = /^o[1-9]/.test(finalConfig.model || '')
+  const isGPT5Model = finalConfig.model?.startsWith('gpt-5') || false
+
   try {
-    const stream = await openai.chat.completions.create({
+    // GPT-5+ models use the Responses API (different from chat completions)
+    if (isGPT5Model) {
+      // Separate system prompt from conversation
+      const systemMessage = messagesWithSystem.find(m => m.role === 'system')
+      const conversationMessages = messagesWithSystem.filter(m => m.role !== 'system')
+
+      // Convert conversation to input string
+      const inputText = conversationMessages.map(msg => {
+        const role = msg.role === 'user' ? 'User' : 'Assistant'
+        return `${role}: ${msg.content}`
+      }).join('\n\n')
+
+      // Build request parameters
+      const responseParams: any = {
+        model: finalConfig.model!,
+        input: inputText || 'Hello',
+        stream: true, // Try streaming first
+        max_output_tokens: finalConfig.maxTokens
+      }
+
+      // Add instructions (system prompt) if available
+      if (systemMessage) {
+        responseParams.instructions = systemMessage.content
+      } else if (finalConfig.systemPrompt) {
+        responseParams.instructions = finalConfig.systemPrompt
+      }
+
+      // Add reasoning effort if specified
+      // gpt-5.1-chat-latest (Instant) only supports 'medium' - skip for speed
+      // gpt-5.1 (Thinking) supports 'low', 'medium', 'high'
+      if (finalConfig.reasoningEffort && finalConfig.model !== 'gpt-5.1-chat-latest') {
+        responseParams.reasoning = { effort: finalConfig.reasoningEffort }
+      }
+
+      try {
+        // Try true streaming first
+        const stream = await openai.responses.create(responseParams)
+        return stream
+      } catch (streamError: any) {
+        // Check if error is due to organization verification
+        const isVerificationError = streamError.code === 'unsupported_value' &&
+                                    streamError.message?.includes('organization must be verified')
+
+        if (isVerificationError) {
+          console.warn('[GPT-5] Organization verification required for streaming, falling back to non-streaming')
+
+          // Fall back to non-streaming
+          const nonStreamParams = { ...responseParams, stream: false }
+          const response = await openai.responses.create(nonStreamParams)
+          const fullText = response.output_text || ''
+
+          // Convert to stream format by yielding the full response at once
+          async function* convertToStream() {
+            yield {
+              choices: [{
+                delta: { content: fullText },
+                finish_reason: 'stop'
+              }]
+            }
+          }
+
+          return convertToStream()
+        } else {
+          // Different error - re-throw
+          console.error('[GPT-5 STREAM] Error details:', {
+            message: streamError.message,
+            status: streamError.status,
+            type: streamError.type,
+            code: streamError.code
+          })
+          throw streamError
+        }
+      }
+    }
+
+    // o-series and other models use chat completions API
+    const baseParams: any = {
       model: finalConfig.model!,
       messages: messagesWithSystem,
-      temperature: finalConfig.temperature,
       max_tokens: finalConfig.maxTokens,
       stream: true,
       ...finalConfig.openAIParams
-    })
+    }
+
+    // Handle reasoning/temperature parameters
+    if (isOSeriesModel && finalConfig.reasoningEffort) {
+      // o-series models (o1, o3, o4-mini) use reasoning_effort parameter
+      baseParams.reasoning_effort = finalConfig.reasoningEffort
+    } else {
+      // Other models use temperature
+      baseParams.temperature = finalConfig.temperature
+    }
+
+    const stream = await openai.chat.completions.create(baseParams)
 
     return stream
   } catch (error) {
@@ -98,15 +195,29 @@ export async function createChatStream(
  * @returns ReadableStream for SSE response
  */
 export function streamToSSE(
-  stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>
+  stream: AsyncIterable<any>
 ): ReadableStream {
   const encoder = new TextEncoder()
 
   return new ReadableStream({
     async start(controller) {
       try {
-        for await (const chunk of stream) {
-          const delta = chunk.choices[0]?.delta?.content || ''
+        for await (const event of stream) {
+          // Handle both chat completions format and Responses API format
+          let delta = ''
+          let finishReason = null
+
+          if (event.choices) {
+            delta = event.choices[0]?.delta?.content || ''
+            finishReason = event.choices[0]?.finish_reason
+          } else if (event.type === 'response.output_text.delta') {
+            delta = event.delta || ''
+          } else if (event.type === 'response.done' || event.type === 'response.completed') {
+            finishReason = 'stop'
+          } else if (event.type === 'response.failed' || event.type === 'response.error') {
+            console.error('[SSE] Responses API error:', event)
+            throw new Error(event.error?.message || 'Response failed')
+          }
 
           if (delta) {
             // Format as SSE
@@ -119,11 +230,11 @@ export function streamToSSE(
           }
 
           // Check if stream is done
-          if (chunk.choices[0]?.finish_reason) {
+          if (finishReason) {
             const doneData = `data: ${JSON.stringify({
               delta: '',
               done: true,
-              finishReason: chunk.choices[0].finish_reason
+              finishReason
             })}\n\n`
 
             controller.enqueue(encoder.encode(doneData))
@@ -148,7 +259,7 @@ export function streamToSSE(
 
     cancel() {
       // Cleanup if needed
-      console.log('Stream cancelled by client')
+      // Stream cancelled by client
     }
   })
 }
@@ -233,14 +344,68 @@ export async function createChatCompletion(
       ]
     : messages
 
+  // Determine model type for parameter handling
+  const isOSeriesModel = /^o[1-9]/.test(finalConfig.model || '')
+  const isGPT5Model = finalConfig.model?.startsWith('gpt-5') || false
+
   try {
-    const completion = await openai.chat.completions.create({
+    // GPT-5+ models use the Responses API (different from chat completions)
+    if (isGPT5Model) {
+      // Separate system prompt from conversation
+      const systemMessage = messagesWithSystem.find(m => m.role === 'system')
+      const conversationMessages = messagesWithSystem.filter(m => m.role !== 'system')
+
+      // Convert conversation to input string
+      const inputText = conversationMessages.map(msg => {
+        const role = msg.role === 'user' ? 'User' : 'Assistant'
+        return `${role}: ${msg.content}`
+      }).join('\n\n')
+
+      // Use responses.create() API for GPT-5 with correct structure
+      const responseParams: any = {
+        model: finalConfig.model!,
+        input: inputText,
+        stream: false,
+        max_output_tokens: finalConfig.maxTokens
+      }
+
+      // Add instructions (system prompt) if available
+      if (systemMessage) {
+        responseParams.instructions = systemMessage.content
+      } else if (finalConfig.systemPrompt) {
+        responseParams.instructions = finalConfig.systemPrompt
+      }
+
+      // Add reasoning effort if specified
+      // gpt-5.1-chat-latest (Instant) only supports 'medium' - skip for speed
+      // gpt-5.1 (Thinking) supports 'low', 'medium', 'high'
+      if (finalConfig.reasoningEffort && finalConfig.model !== 'gpt-5.1-chat-latest') {
+        responseParams.reasoning = { effort: finalConfig.reasoningEffort }
+      }
+
+      // Use responses API directly (SDK v6+ supports it)
+      const response = await openai.responses.create(responseParams)
+      return response.output_text || ''
+    }
+
+    // o-series and other models use chat completions API
+    const baseParams: any = {
       model: finalConfig.model!,
       messages: messagesWithSystem,
-      temperature: finalConfig.temperature,
       max_tokens: finalConfig.maxTokens,
       ...finalConfig.openAIParams
-    })
+    }
+
+    // Handle reasoning/temperature parameters
+    if (isOSeriesModel && finalConfig.reasoningEffort) {
+      // o-series models (o1, o3, o4-mini) use reasoning_effort parameter
+      baseParams.reasoning_effort = finalConfig.reasoningEffort
+    } else {
+      // Other models use temperature
+      baseParams.temperature = finalConfig.temperature
+    }
+
+    const completion = await openai.chat.completions.create(baseParams)
 
     return completion.choices[0]?.message?.content || ''
   } catch (error) {

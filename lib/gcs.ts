@@ -1,9 +1,28 @@
 /**
- * File storage utilities using Vercel Blob
+ * File storage utilities using Google Cloud Storage
  * This module provides file upload, download, and deletion functionality
  */
 
-import { put, del, list } from '@vercel/blob';
+import { Storage } from '@google-cloud/storage';
+
+// Initialize Google Cloud Storage
+// Supports both env var credentials (production/Heroku) and key file (local dev)
+const storage = new Storage({
+  projectId: process.env.GCS_PROJECT_ID,
+  ...(process.env.GCS_CLIENT_EMAIL && process.env.GCS_PRIVATE_KEY
+    ? {
+        credentials: {
+          client_email: process.env.GCS_CLIENT_EMAIL,
+          private_key: process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        },
+      }
+    : process.env.GOOGLE_APPLICATION_CREDENTIALS
+    ? { keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS }
+    : {}),
+});
+
+const bucketName = process.env.GCS_BUCKET_NAME || 'user_summaries';
+const bucket = storage.bucket(bucketName);
 
 export interface UploadResult {
   url: string;
@@ -13,7 +32,7 @@ export interface UploadResult {
 }
 
 /**
- * Upload a file to Vercel Blob storage
+ * Upload a file to Google Cloud Storage
  * @param file - File to upload
  * @param folder - Optional folder path (e.g., 'courses/materials')
  * @returns Upload result with URL and metadata
@@ -26,24 +45,41 @@ export async function uploadFile(
     const filename = file.name;
     const path = folder ? `${folder}/${filename}` : filename;
 
-    const blob = await put(path, file, {
-      access: 'public',
+    // Convert File to Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Create a reference to the file in GCS
+    const gcsFile = bucket.file(path);
+
+    // Upload the file
+    await gcsFile.save(buffer, {
+      metadata: {
+        contentType: file.type || 'application/octet-stream',
+      },
+    });
+
+    // Generate a signed URL that expires in 10 years (for long-term access)
+    // Note: For uniform bucket-level access, we use signed URLs instead of public URLs
+    const [signedUrl] = await gcsFile.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 365 * 24 * 60 * 60 * 1000 * 10, // 10 years
     });
 
     return {
-      url: blob.url,
+      url: signedUrl,
       filename: path,
       size: file.size,
       mimeType: file.type || 'application/octet-stream',
     };
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Error uploading file to GCS:', error);
     throw new Error('Failed to upload file');
   }
 }
 
 /**
- * Upload multiple files to Vercel Blob storage
+ * Upload multiple files to Google Cloud Storage
  * @param files - Array of files to upload
  * @param folder - Optional folder path
  * @returns Array of upload results
@@ -57,20 +93,42 @@ export async function uploadFiles(
 }
 
 /**
- * Delete a file from Vercel Blob storage
- * @param url - URL of the file to delete
+ * Delete a file from Google Cloud Storage
+ * @param url - URL of the file to delete (can be signed URL or regular URL)
  */
 export async function deleteFile(url: string): Promise<void> {
   try {
-    await del(url);
+    // Extract the file path from the URL
+    // Handle both signed URLs and regular URLs
+    let filePath: string;
+
+    if (url.includes('?')) {
+      // Signed URL format: https://storage.googleapis.com/bucket-name/path?GoogleAccessId=...
+      const urlWithoutQuery = url.split('?')[0];
+      const pathMatch = urlWithoutQuery.match(new RegExp(`${bucketName}/(.*)`));
+      if (!pathMatch) {
+        throw new Error('Invalid GCS URL format');
+      }
+      filePath = decodeURIComponent(pathMatch[1]);
+    } else {
+      // Regular URL format: https://storage.googleapis.com/bucket-name/path/to/file
+      const urlParts = url.split(`https://storage.googleapis.com/${bucketName}/`);
+      if (urlParts.length < 2) {
+        throw new Error('Invalid GCS URL format');
+      }
+      filePath = urlParts[1];
+    }
+
+    const gcsFile = bucket.file(filePath);
+    await gcsFile.delete();
   } catch (error) {
-    console.error('Error deleting file:', error);
+    console.error('Error deleting file from GCS:', error);
     throw new Error('Failed to delete file');
   }
 }
 
 /**
- * Delete multiple files from Vercel Blob storage
+ * Delete multiple files from Google Cloud Storage
  * @param urls - Array of URLs to delete
  */
 export async function deleteFiles(urls: string[]): Promise<void> {
@@ -85,10 +143,12 @@ export async function deleteFiles(urls: string[]): Promise<void> {
  */
 export async function listFiles(prefix?: string): Promise<string[]> {
   try {
-    const { blobs } = await list({ prefix });
-    return blobs.map((blob) => blob.url);
+    const [files] = await bucket.getFiles({ prefix });
+    return files.map(
+      (file) => `https://storage.googleapis.com/${bucketName}/${file.name}`
+    );
   } catch (error) {
-    console.error('Error listing files:', error);
+    console.error('Error listing files from GCS:', error);
     throw new Error('Failed to list files');
   }
 }
@@ -106,43 +166,4 @@ export function generateUniqueFilename(originalName: string): string {
   const sanitizedName = nameWithoutExt.replace(/[^a-zA-Z0-9]/g, '-');
 
   return `${sanitizedName}-${timestamp}-${randomString}.${extension}`;
-}
-
-/**
- * Validate file type
- * @param file - File to validate
- * @param allowedTypes - Array of allowed MIME types
- * @returns True if file type is allowed
- */
-export function validateFileType(
-  file: File,
-  allowedTypes: string[]
-): boolean {
-  return allowedTypes.includes(file.type);
-}
-
-/**
- * Validate file size
- * @param file - File to validate
- * @param maxSizeInMB - Maximum file size in megabytes
- * @returns True if file size is within limit
- */
-export function validateFileSize(file: File, maxSizeInMB: number): boolean {
-  const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
-  return file.size <= maxSizeInBytes;
-}
-
-/**
- * Format file size to human-readable string
- * @param bytes - File size in bytes
- * @returns Formatted string (e.g., "1.5 MB")
- */
-export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }

@@ -1,7 +1,14 @@
-import { PrismaClient, UserRole } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
+
+// Map classId to UserRole
+const ROLE_MAPPING = {
+  'admin': 'admin',
+  'instructor': 'instructor',
+  'student': 'student',
+}
 
 async function main() {
   console.log('Starting database seed...')
@@ -17,9 +24,9 @@ async function main() {
     update: {},
     create: {
       email: 'admin@drexel.edu',
-      name: 'Super Admin',
+      username: 'admin',
       password: adminPassword,
-      role: UserRole.SUPERADMIN,
+      classId: 'admin',
     },
   })
   console.log('✓ Created superadmin user:', superadmin.email)
@@ -30,9 +37,9 @@ async function main() {
     update: {},
     create: {
       email: 'instructor@drexel.edu',
-      name: 'Dr. Jane Smith',
+      username: 'instructor',
       password: instructorPassword,
-      role: UserRole.INSTRUCTOR,
+      classId: 'instructor',
     },
   })
   console.log('✓ Created instructor user:', instructor.email)
@@ -43,9 +50,9 @@ async function main() {
     update: {},
     create: {
       email: 'student1@drexel.edu',
-      name: 'John Doe',
+      username: 'student1',
       password: studentPassword,
-      role: UserRole.STUDENT,
+      classId: 'student',
     },
   })
   console.log('✓ Created student user:', student1.email)
@@ -55,105 +62,14 @@ async function main() {
     update: {},
     create: {
       email: 'student2@drexel.edu',
-      name: 'Alice Johnson',
+      username: 'student2',
       password: studentPassword,
-      role: UserRole.STUDENT,
+      classId: 'student',
     },
   })
   console.log('✓ Created student user:', student2.email)
 
-  // Create a sample course
-  const course = await prisma.course.upsert({
-    where: { code: 'CS101' },
-    update: {},
-    create: {
-      name: 'Introduction to Computer Science',
-      code: 'CS101',
-      description: 'A foundational course in computer science covering programming fundamentals, algorithms, and data structures.',
-      instructorId: instructor.id,
-      systemPrompt: `You are an AI teaching assistant for CS101: Introduction to Computer Science.
-Your role is to help students understand programming concepts, debug code, and learn problem-solving skills.
-Always encourage critical thinking and guide students toward solutions rather than providing direct answers.
-Be patient, supportive, and adapt your explanations to the student's level of understanding.`,
-      modelConfig: {
-        model: 'claude-sonnet-4',
-        temperature: 0.7,
-        reasoning_level: 'medium',
-      },
-      syllabusInfo: `Course Syllabus:
-Week 1-2: Python Basics & Variables
-Week 3-4: Control Flow & Loops
-Week 5-6: Functions & Modules
-Week 7-8: Data Structures (Lists, Dicts)
-Week 9-10: Object-Oriented Programming
-Week 11-12: File I/O & Error Handling
-Week 13-14: Algorithms & Complexity
-Week 15: Final Project`,
-      timezone: 'America/New_York',
-      isActive: true,
-    },
-  })
-  console.log('✓ Created sample course:', course.code)
-
-  // Enroll students in the course
-  const enrollment1 = await prisma.courseEnrollment.upsert({
-    where: {
-      userId_courseId: {
-        userId: student1.id,
-        courseId: course.id,
-      },
-    },
-    update: {},
-    create: {
-      userId: student1.id,
-      courseId: course.id,
-    },
-  })
-  console.log('✓ Enrolled', student1.name, 'in', course.code)
-
-  const enrollment2 = await prisma.courseEnrollment.upsert({
-    where: {
-      userId_courseId: {
-        userId: student2.id,
-        courseId: course.id,
-      },
-    },
-    update: {},
-    create: {
-      userId: student2.id,
-      courseId: course.id,
-    },
-  })
-  console.log('✓ Enrolled', student2.name, 'in', course.code)
-
-  // Create some sample class schedules
-  const now = new Date()
-  const nextWeek = new Date(now)
-  nextWeek.setDate(now.getDate() + 7)
-  const lastWeek = new Date(now)
-  lastWeek.setDate(now.getDate() - 7)
-
-  await prisma.classSchedule.create({
-    data: {
-      courseId: course.id,
-      title: 'Introduction to Python',
-      description: 'First lecture covering Python basics and setup',
-      sessionDate: lastWeek,
-      sessionType: 'PAST',
-    },
-  })
-  console.log('✓ Created past class schedule')
-
-  await prisma.classSchedule.create({
-    data: {
-      courseId: course.id,
-      title: 'Control Flow and Conditionals',
-      description: 'Deep dive into if statements, loops, and control structures',
-      sessionDate: nextWeek,
-      sessionType: 'UPCOMING',
-    },
-  })
-  console.log('✓ Created upcoming class schedule')
+  console.log('\nNote: Course creation skipped - Course model needs to be updated to match database schema')
 
   console.log('\n✅ Database seeding completed successfully!')
   console.log('\nTest credentials:')

@@ -63,11 +63,16 @@ export async function validateCourseAccess(
   requiredRole?: CourseRole
 ): Promise<boolean> {
   try {
+    const userIdInt = parseInt(userId)
+    if (isNaN(userIdInt)) {
+      return false
+    }
+
     const enrollment = await prisma.courseEnrollment.findUnique({
       where: {
-        userId_courseId: {
-          userId,
-          courseId
+        courseId_userId: {
+          courseId,
+          userId: userIdInt
         }
       },
       include: {

@@ -6,6 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { validateCourseAccess, getCourseEnrollment } from '@/lib/security'
 import { ApiResponse } from '@/types'
 
@@ -23,9 +25,8 @@ export async function GET(
   try {
     const { courseId } = params
 
-    // TODO: Get user ID from session
-    // For now, we'll use a header - update this with your NextAuth.js implementation
-    const userId = request.headers.get('x-user-id')
+    const session = await getServerSession(authOptions)
+    const userId = (session?.user as any)?.id as string | undefined
 
     if (!userId) {
       return NextResponse.json<ApiResponse>(

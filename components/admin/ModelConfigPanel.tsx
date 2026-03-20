@@ -26,13 +26,23 @@ interface ModelConfigPanelProps {
 }
 
 const AI_MODELS = [
-  { value: 'gpt-4', label: 'GPT-4' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-  { value: 'o1-preview', label: 'O1 Preview' },
-  { value: 'o1-mini', label: 'O1 Mini' },
+  { value: 'gpt-5.4', label: 'GPT-5.4 (Latest Flagship)' },
+  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini (Best Value)' },
+  { value: 'gpt-5.4-nano', label: 'GPT-5.4 Nano (Lightweight)' },
+  { value: 'gpt-5.2', label: 'GPT-5.2' },
+  { value: 'gpt-5.1', label: 'GPT-5.1 Thinking' },
+  { value: 'gpt-5', label: 'GPT-5' },
+  { value: 'o4-mini', label: 'o4-mini (Fast Reasoning)' },
+  { value: 'o3', label: 'o3 (Advanced Reasoning)' },
+  { value: 'o3-mini', label: 'o3-mini' },
+  { value: 'o1', label: 'o1' },
+  { value: 'gpt-4.1', label: 'GPT-4.1 (1M Context)' },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+  { value: 'gpt-4o', label: 'GPT-4o (Legacy)' },
 ];
 
 const REASONING_LEVELS = [
+  { value: 'minimal', label: 'Minimal (GPT-5+ only)' },
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
@@ -46,7 +56,7 @@ export function ModelConfigPanel({ initialConfig, onSave }: ModelConfigPanelProp
   const [syllabus, setSyllabus] = useState(initialConfig.syllabus || '');
   const [loading, setLoading] = useState(false);
 
-  const isO1Model = model.startsWith('o1');
+  const isReasoningModel = /^o[1-9]/.test(model) || model.startsWith('gpt-5');
 
   const handleSave = async () => {
     setLoading(true);
@@ -107,7 +117,7 @@ export function ModelConfigPanel({ initialConfig, onSave }: ModelConfigPanelProp
             </p>
           </div>
 
-          {isO1Model && (
+          {isReasoningModel && (
             <div className="space-y-2">
               <Label htmlFor="reasoning">Reasoning Level</Label>
               <Select value={reasoningLevel} onValueChange={setReasoningLevel}>

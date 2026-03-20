@@ -2,96 +2,50 @@
  * NextAuth configuration and utilities
  */
 
-import { NextAuthOptions, getServerSession as nextGetServerSession } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
+import { getServerSession as nextGetServerSession } from 'next-auth';
+import { authOptions } from './auth-options';
 import { prisma } from './prisma';
-import bcrypt from 'bcryptjs';
-import { UserRole } from '@prisma/client';
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: 'jwt',
-  },
-  pages: {
-    signIn: '/login',
-  },
-  providers: [
-    CredentialsProvider({
-      name: 'credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error('Invalid credentials');
-        }
+// Define UserRole enum locally since it's not in Prisma schema
+export enum UserRole {
+  STUDENT = 'STUDENT',
+  INSTRUCTOR = 'INSTRUCTOR',
+  SUPERADMIN = 'SUPERADMIN',
+}
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
-        });
-
-        if (!user || !user.password) {
-          throw new Error('Invalid credentials');
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error('Invalid credentials');
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          image: user.image,
-        };
-      },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = (user as any).role;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).role = token.role;
-      }
-      return session;
-    },
-  },
-};
+// Export the authOptions from auth-options.ts
+export { authOptions };
 
 /**
- * Get server session
+ * Get server session with error handling
  */
-export function getServerSession() {
-  return nextGetServerSession(authOptions);
+export async function getServerSession() {
+  try {
+    return await nextGetServerSession(authOptions);
+  } catch (error) {
+    console.error('[AUTH] Session error:', error);
+    return null;
+  }
 }
 
 /**
  * Require authentication
- * Throws an error if user is not authenticated
+ * Throws an error if user is not authenticated or session is invalid
  */
 export async function requireAuth() {
   const session = await getServerSession();
+
   if (!session?.user) {
     throw new Error('Unauthorized');
   }
+
+  // Validate that user has an ID
+  const userId = (session.user as any).id;
+  if (!userId || isNaN(parseInt(userId))) {
+    console.error('[AUTH] Invalid user ID in session:', userId);
+    throw new Error('Invalid session');
+  }
+
   return session;
 }
 
@@ -130,9 +84,14 @@ export async function getCurrentUser() {
     return null;
   }
 
+  const userId = parseInt((session.user as any).id);
+  if (isNaN(userId)) {
+    return null;
+  }
+
   const user = await prisma.user.findUnique({
     where: {
-      id: (session.user as any).id,
+      id: userId,
     },
   });
 

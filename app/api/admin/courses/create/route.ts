@@ -7,13 +7,14 @@ const createCourseSchema = z.object({
   name: z.string().min(1, 'Course name is required'),
   code: z.string().min(1, 'Course code is required'),
   description: z.string().optional(),
+  timezone: z.string().default('America/New_York'),
 });
 
 export async function POST(request: NextRequest) {
   try {
     // Require instructor role
-    const session = await requireRole('ADMIN');
-    const userId = (session.user as any).id;
+    const session = await requireRole('INSTRUCTOR');
+    const userId = parseInt((session.user as any).id);
 
     // Parse and validate request body
     const body = await request.json();
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         code: validatedData.code,
         description: validatedData.description,
+        timezone: validatedData.timezone,
         instructors: {
           create: {
             userId: userId,
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
             user: {
               select: {
                 id: true,
-                name: true,
+                username: true,
                 email: true,
               },
             },
