@@ -1,7 +1,8 @@
 'use client'
 
-import { signOut } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { LogOut, User, Settings, ChevronDown } from 'lucide-react'
 import { APP_VERSION } from '@/lib/version'
@@ -23,6 +24,11 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ userName, userEmail, userRole }: DashboardHeaderProps) {
   const router = useRouter()
 
+  // Determine home path based on role
+  const homePath = userRole === 'SUPERADMIN' ? '/superadmin'
+    : userRole === 'INSTRUCTOR' ? '/admin'
+    : '/student'
+
   const handleLogout = async () => {
     await signOut({ callbackUrl: '/login' })
   }
@@ -31,10 +37,10 @@ export function DashboardHeader({ userName, userEmail, userRole }: DashboardHead
     <header className="border-b border-border bg-background sticky top-0 z-50">
       <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between">
         {/* Logo/Brand */}
-        <div className="flex items-center gap-2 min-w-0">
+        <Link href={homePath} className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity">
           <h2 className="text-lg sm:text-xl font-bold truncate">Dragon AI</h2>
           <span className="hidden sm:inline text-xs text-muted-foreground">v{APP_VERSION}</span>
-        </div>
+        </Link>
 
         {/* User Menu */}
         <div className="flex items-center flex-shrink-0">

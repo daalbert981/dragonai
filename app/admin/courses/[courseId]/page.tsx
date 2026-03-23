@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, FileText, BookOpen, Settings, BarChart3 } from 'lucide-react';
+import { Users, FileText, BookOpen, Settings, BarChart3, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 async function getCourseDetails(courseId: string, userId: number, role: string) {
@@ -85,6 +85,13 @@ export default async function CourseManagementPage({
         userRole={(session?.user as any)?.role}
       />
       <div className="container mx-auto py-6 sm:py-8 px-3 sm:px-4">
+        <Link href="/admin">
+          <Button variant="ghost" className="mb-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
+
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
