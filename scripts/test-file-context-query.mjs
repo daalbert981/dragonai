@@ -1,14 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 
-const DATABASE_URL = "postgres://ub4k0m1t3kp0jf:***REDACTED***@c57oa7dm3pc281.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/de5ohdk3foejht";
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is not set');
+  process.exit(1);
+}
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: DATABASE_URL
-    }
-  }
-});
+const prisma = new PrismaClient();
 
 async function main() {
   console.log('Testing file context query for existing session...\n');
