@@ -156,9 +156,17 @@ async function cleanupCourseSessions(course: {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Simple authentication using a secret token
+    // Authenticate using secret token from environment
     const authHeader = request.headers.get('authorization')
-    const expectedToken = process.env.CLEANUP_SECRET_TOKEN || 'your-secret-token-here'
+    const expectedToken = process.env.CLEANUP_SECRET_TOKEN
+
+    if (!expectedToken) {
+      console.error('[CLEANUP] CLEANUP_SECRET_TOKEN not set in environment!')
+      return NextResponse.json(
+        { error: 'Server misconfiguration' },
+        { status: 500 }
+      )
+    }
 
     if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
       return NextResponse.json(
@@ -229,9 +237,17 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Simple authentication using a secret token
+    // Authenticate using secret token from environment
     const authHeader = request.headers.get('authorization')
-    const expectedToken = process.env.CLEANUP_SECRET_TOKEN || 'your-secret-token-here'
+    const expectedToken = process.env.CLEANUP_SECRET_TOKEN
+
+    if (!expectedToken) {
+      console.error('[CLEANUP] CLEANUP_SECRET_TOKEN not set in environment!')
+      return NextResponse.json(
+        { error: 'Server misconfiguration' },
+        { status: 500 }
+      )
+    }
 
     if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
       return NextResponse.json(
