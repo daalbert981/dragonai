@@ -141,14 +141,20 @@ export function ChatMessage({
         >
           {/* Streaming indicator */}
           {isStreaming && (
-            <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 mb-2 text-sm text-foreground/70">
               <Loader2 className="h-3 w-3 animate-spin" />
               <span>Generating response...</span>
             </div>
           )}
 
           {/* Message text with markdown support */}
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline">
+          <div className={cn(
+            "prose prose-sm dark:prose-invert max-w-none",
+            isUser
+              ? "prose-invert prose-p:text-primary-foreground prose-li:text-primary-foreground prose-strong:text-primary-foreground prose-headings:text-primary-foreground text-primary-foreground prose-a:text-blue-200 dark:prose-a:text-blue-200"
+              : "prose-a:text-blue-600 dark:prose-a:text-blue-400 text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-headings:text-foreground",
+            "prose-a:no-underline hover:prose-a:underline"
+          )}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
