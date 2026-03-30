@@ -45,6 +45,11 @@ export interface StreamConfig {
   systemPrompt?: string
 
   /**
+   * Tool definitions for function calling
+   */
+  tools?: any[]
+
+  /**
    * Additional OpenAI parameters
    */
   openAIParams?: Partial<OpenAI.Chat.ChatCompletionCreateParams>
@@ -118,6 +123,11 @@ export async function createChatStream(
       // gpt-5.1 (Thinking) supports 'low', 'medium', 'high'
       if (finalConfig.reasoningEffort && finalConfig.model !== 'gpt-5.1-chat-latest') {
         responseParams.reasoning = { effort: finalConfig.reasoningEffort }
+      }
+
+      // Add tools if provided
+      if (finalConfig.tools && finalConfig.tools.length > 0) {
+        responseParams.tools = finalConfig.tools
       }
 
       try {

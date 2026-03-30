@@ -308,15 +308,13 @@ ${baseSystemPrompt}`
       streamOptions.temperature = course.temperature || 0.7
     }
 
-    // Add tools for chat completions API (non-GPT-5 models)
-    if (tools && !isGPT5Model) {
-      streamOptions.openAIParams = { tools }
-    }
-
-    // For GPT-5 models, add tool instructions to the system prompt
-    // (Responses API handles tools differently — we embed guidance in instructions)
-    if (tools && isGPT5Model) {
-      streamOptions.systemPrompt = systemPrompt
+    // Add tools for all model types
+    if (tools) {
+      streamOptions.tools = tools
+      // Also pass via openAIParams for chat completions API models
+      if (!isGPT5Model) {
+        streamOptions.openAIParams = { tools }
+      }
     }
 
     const openaiStream = await createChatStream(formattedMessages, streamOptions)
@@ -396,12 +394,9 @@ async function processStream(
         toolCallAccumulator!.arguments += tc.function.arguments
       }
 
-      // Check if this chunk also has a finish_reason
       if (event.choices[0].finish_reason === 'tool_calls') {
-        // Tool call complete — execute it
         const result = await executeToolCall(toolCallAccumulator!, ctx, controller, encoder)
 
-        // Make a second API call with the tool result
         const messagesWithToolResult = [
           { role: 'system', content: ctx.streamOptions.systemPrompt },
           ...ctx.formattedMessages,
@@ -424,20 +419,63 @@ async function processStream(
           }
         ]
 
-        // Create follow-up stream (without tools to prevent infinite loops)
         const followUpOptions = { ...ctx.streamOptions }
         delete followUpOptions.systemPrompt
-        followUpOptions.openAIParams = {} // No tools on follow-up
+        followUpOptions.openAIParams = {}
+        followUpOptions.tools = undefined
 
         const followUpStream = await createChatStream(
           messagesWithToolResult as any,
           { ...followUpOptions, systemPrompt: undefined }
         )
 
-        // Process the follow-up stream for the actual response
         await processStream(followUpStream, controller, encoder, {
           ...ctx,
-          tools: undefined, // prevent further tool calls
+          tools: undefined,
+        })
+        return
+      }
+      continue
+    }
+
+    // --- Responses API (GPT-5) tool call handling ---
+    if (event.type === 'response.output_item.added' && event.item?.type === 'function_call') {
+      toolCallAccumulator = {
+        id: event.item.call_id || event.item.id || 'call_' + Date.now(),
+        name: event.item.name || '',
+        arguments: ''
+      }
+      continue
+    }
+
+    if (event.type === 'response.function_call_arguments.delta') {
+      if (toolCallAccumulator) {
+        toolCallAccumulator.arguments += event.delta || ''
+      }
+      continue
+    }
+
+    if (event.type === 'response.function_call_arguments.done') {
+      if (toolCallAccumulator) {
+        // Execute the tool call
+        const result = await executeToolCall(toolCallAccumulator, ctx, controller, encoder)
+
+        // For Responses API, we use a non-streaming follow-up with tool output
+        // then stream a second call for the final answer
+        const followUpOptions = { ...ctx.streamOptions }
+        followUpOptions.tools = undefined
+
+        // Build conversation with tool result appended to instructions
+        const toolResultPrompt = `${ctx.streamOptions.systemPrompt}\n\n--- Tool Result ---\nThe read_material tool was called for "${toolCallAccumulator.name === 'read_material' ? JSON.parse(toolCallAccumulator.arguments).filename : 'unknown'}". Here is the content:\n\n${result}\n\n--- End Tool Result ---\nNow answer the student's question using this material. Do not mention that you used a tool.`
+
+        const followUpStream = await createChatStream(
+          ctx.formattedMessages,
+          { ...followUpOptions, systemPrompt: toolResultPrompt }
+        )
+
+        await processStream(followUpStream, controller, encoder, {
+          ...ctx,
+          tools: undefined,
         })
         return
       }
@@ -454,7 +492,8 @@ async function processStream(
     } else if (event.type === 'response.output_text.delta') {
       delta = event.delta || ''
     } else if (event.type === 'response.done' || event.type === 'response.completed') {
-      isFinished = true
+      // Only mark finished if we have content (not if it was just a tool call response)
+      if (fullResponse) isFinished = true
     }
 
     if (delta) {
