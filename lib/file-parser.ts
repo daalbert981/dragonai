@@ -92,9 +92,22 @@ export async function extractTextFromFile(
 
   // Handle PDF files
   if (mimeType === 'application/pdf') {
-    // PDF extraction currently disabled due to webpack compatibility issues
-    // Users should convert PDFs to DOCX or TXT format
-    throw new Error('PDF text extraction is currently unavailable. Please convert your PDF to DOCX or TXT format first. You can use Google Docs (File → Download → Microsoft Word) or online converters like pdf2docx.com');
+    try {
+      // Dynamic import to avoid webpack client-side bundling issues
+      // pdf-parse is listed in next.config.js serverComponentsExternalPackages
+      const pdfParse = (await import('pdf-parse')).default
+      const result = await pdfParse(buffer)
+      return result.text
+    } catch (error: any) {
+      // If dynamic import fails, try require as fallback
+      try {
+        const pdfParse = require('pdf-parse')
+        const result = await pdfParse(buffer)
+        return result.text
+      } catch (fallbackError) {
+        throw new Error(`Failed to extract text from PDF: ${error?.message || 'Unknown error'}`)
+      }
+    }
   }
 
   throw new Error(`Unsupported file type for text extraction: ${mimeType}`);
@@ -150,19 +163,42 @@ export async function parseFile(file: File): Promise<ParsedFileResult> {
  * Consider using external PDF processing service or Adobe PDF Services API.
  */
 async function parsePDF(file: File): Promise<ParsedFileResult> {
-  // Return metadata only - PDF text extraction temporarily disabled
-  return {
-    text: null,
-    data: {
-      requiresPDFProcessing: true,
-      mimeType: file.type,
-      size: file.size
-    },
-    metadata: {
-      type: 'pdf',
-      warnings: ['PDF text extraction is currently unavailable. The file has been uploaded and the LLM can still see the filename, but cannot read the content. Consider describing the PDF contents in your message.']
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer())
+    let result: any
+    try {
+      const pdfParse = (await import('pdf-parse')).default
+      result = await pdfParse(buffer)
+    } catch {
+      const pdfParse = require('pdf-parse')
+      result = await pdfParse(buffer)
     }
-  };
+    const tokenCount = estimateTokenCount(result.text)
+
+    return {
+      text: result.text,
+      data: null,
+      metadata: {
+        type: 'pdf',
+        pages: result.numpages,
+        tokenCount,
+      }
+    }
+  } catch (error) {
+    console.error('PDF parsing error:', error)
+    return {
+      text: null,
+      data: {
+        requiresPDFProcessing: true,
+        mimeType: file.type,
+        size: file.size
+      },
+      metadata: {
+        type: 'pdf',
+        warnings: [`PDF text extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
+      }
+    }
+  }
 }
 
 /**

@@ -1,6 +1,6 @@
 'use client'
 
-import { BookOpen } from 'lucide-react'
+import { BookOpen, PenSquare } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { ChatHistory } from './ChatHistory'
 
@@ -34,6 +34,14 @@ export function ChatHeader({ courseName, courseCode, courseId, sessionId }: Chat
 
         {/* Actions */}
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <button
+            className="px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1.5"
+            onClick={() => router.push(`/student/courses/${courseId}/chat`)}
+            title="New Chat"
+          >
+            <PenSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">New Chat</span>
+          </button>
           <ChatHistory
             courseId={courseId}
             currentSessionId={sessionId}
