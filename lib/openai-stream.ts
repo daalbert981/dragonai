@@ -125,9 +125,14 @@ export async function createChatStream(
         responseParams.reasoning = { effort: finalConfig.reasoningEffort }
       }
 
-      // Add tools if provided
+      // Add tools if provided (convert from Chat Completions format to Responses API format)
       if (finalConfig.tools && finalConfig.tools.length > 0) {
-        responseParams.tools = finalConfig.tools
+        responseParams.tools = finalConfig.tools.map((tool: any) => ({
+          type: 'function',
+          name: tool.function.name,
+          description: tool.function.description,
+          parameters: tool.function.parameters,
+        }))
       }
 
       try {
