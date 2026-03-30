@@ -108,6 +108,7 @@ model CourseMaterial {
   storageUrl        String   @map("storage_url")
   description       String?
   aiSummary         String?  @map("ai_summary")
+  extractedText     String?  @map("extracted_text") @db.Text
   uploadedAt        DateTime @default(now()) @map("uploaded_at")
 
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)

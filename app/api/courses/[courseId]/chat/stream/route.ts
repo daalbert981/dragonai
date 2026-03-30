@@ -13,12 +13,13 @@ import { prisma } from '@/lib/prisma'
 import { validateCourseAccess } from '@/lib/security'
 import {
   createChatStream,
-  createStreamingResponse,
   handleStreamError,
   formatMessagesForOpenAI,
-  estimateTokenCount
+  estimateTokenCount,
+  streamToSSE
 } from '@/lib/openai-stream'
 import { formatInTimeZone } from 'date-fns-tz'
+import { truncateToTokenLimit } from '@/lib/file-parser'
 
 /**
  * GET /api/courses/[courseId]/chat/stream
@@ -176,18 +177,29 @@ export async function GET(
       'EEEE, MMMM do, yyyy \'at\' h:mm a zzz'
     )
 
+    // Build list of materials with extractable content for the tool
+    const readableMaterials = course.materials.filter(m => m.extractedText)
+    const allMaterials = course.materials
+
     // Build course materials section for system prompt
     let materialsSection = ''
-    if (course.materials && course.materials.length > 0) {
+    if (allMaterials.length > 0) {
       materialsSection = '\n\nCourse Materials Available:\n'
-      course.materials.forEach((material, index) => {
+      allMaterials.forEach((material, index) => {
         materialsSection += `${index + 1}. ${material.originalName}`
         if (material.description) {
           materialsSection += ` - ${material.description}`
         }
-        materialsSection += `\n   URL: ${material.storageUrl}\n`
+        materialsSection += `\n   URL: ${material.storageUrl}`
+        if (material.extractedText) {
+          materialsSection += ` [full text available via read_material tool]`
+        }
+        materialsSection += '\n'
       })
       materialsSection += '\nYou can reference these materials when answering questions. The URLs are accessible to students.'
+      if (readableMaterials.length > 0) {
+        materialsSection += `\n\nIMPORTANT: You have a "read_material" tool available to read the full text content of materials marked as [full text available]. Use this tool ONLY when you need specific details (exact wording, specific policies, precise numbers, etc.) that are not covered by the syllabus summary above. Do NOT use the tool for general questions that the syllabus summary already answers. Do not announce or mention that you are reading a file — just use the information naturally in your response.`
+      }
     }
 
     // Build syllabus section if available
@@ -263,6 +275,25 @@ ${baseSystemPrompt}`
     const isOSeriesModel = /^o[1-9]/.test(course.model)
     const isGPT5Model = course.model.startsWith('gpt-5')
 
+    // Build tool definitions if readable materials exist
+    const tools = readableMaterials.length > 0 ? [{
+      type: 'function' as const,
+      function: {
+        name: 'read_material',
+        description: 'Read the full text content of a course material. Only use this when you need specific details not covered by the syllabus summary.',
+        parameters: {
+          type: 'object',
+          properties: {
+            filename: {
+              type: 'string',
+              description: `The original filename of the material to read. Available files: ${readableMaterials.map(m => m.originalName).join(', ')}`
+            }
+          },
+          required: ['filename']
+        }
+      }
+    }] : undefined
+
     // Create OpenAI stream with course-specific settings
     const streamOptions: any = {
       model: course.model || 'gpt-5.4-mini',
@@ -272,76 +303,258 @@ ${baseSystemPrompt}`
 
     // Different models use different parameters
     if (isOSeriesModel || isGPT5Model) {
-      // o-series (o1, o3, o4-mini) and GPT-5+ models use reasoningEffort
       streamOptions.reasoningEffort = course.reasoningLevel || 'medium'
     } else {
-      // All other models use temperature
       streamOptions.temperature = course.temperature || 0.7
+    }
+
+    // Add tools for chat completions API (non-GPT-5 models)
+    if (tools && !isGPT5Model) {
+      streamOptions.openAIParams = { tools }
+    }
+
+    // For GPT-5 models, add tool instructions to the system prompt
+    // (Responses API handles tools differently — we embed guidance in instructions)
+    if (tools && isGPT5Model) {
+      streamOptions.systemPrompt = systemPrompt
     }
 
     const openaiStream = await createChatStream(formattedMessages, streamOptions)
 
-    // Track the response for database storage
-    let fullResponse = ''
-    let tokenCount = 0
+    // Custom SSE response that handles tool calls
+    const encoder = new TextEncoder()
 
-    // Wrap the stream to capture content
-    const captureStream = async function* () {
-      for await (const event of openaiStream as AsyncIterable<any>) {
-        // Handle both chat completions and Responses API formats
-        let delta = ''
-        let isFinished = false
-
-        if (event.choices) {
-          // Chat completions API format
-          delta = event.choices[0]?.delta?.content || ''
-          isFinished = !!event.choices[0]?.finish_reason
-        } else if (event.type === 'response.output_text.delta') {
-          // Responses API format - text delta event
-          delta = event.delta || ''
-        } else if (event.type === 'response.done' || event.type === 'response.completed') {
-          // Responses API - completion event
-          isFinished = true
+    const sseStream = new ReadableStream({
+      async start(controller) {
+        try {
+          await processStream(openaiStream, controller, encoder, {
+            sessionId,
+            userIdInt,
+            courseId,
+            formattedMessages,
+            streamOptions,
+            readableMaterials,
+            isGPT5Model,
+            tools,
+          })
+          controller.close()
+        } catch (error) {
+          console.error('Error in SSE stream:', error)
+          const errorData = `data: ${JSON.stringify({
+            delta: '',
+            done: true,
+            error: error instanceof Error ? error.message : 'Stream error occurred'
+          })}\n\n`
+          controller.enqueue(encoder.encode(errorData))
+          controller.close()
         }
-
-        if (delta) {
-          fullResponse += delta
-        }
-
-        // Save the message BEFORE yielding the final chunk
-        // (because streamToSSE breaks after receiving an event with finish_reason)
-        if (isFinished && fullResponse) {
-          tokenCount = estimateTokenCount(fullResponse)
-
-          try {
-            await prisma.chatMessage.create({
-              data: {
-                sessionId,
-                userId: userIdInt,
-                role: 'ASSISTANT',
-                content: fullResponse,
-                tokenCount
-              }
-            })
-
-            // Update session timestamp
-            await prisma.chatSession.update({
-              where: { id: sessionId },
-              data: { updatedAt: new Date() }
-            })
-          } catch (error) {
-            console.error('Error saving ASSISTANT message:', error)
-          }
-        }
-
-        yield event
       }
-    }
+    })
 
-    // Return streaming response
-    return createStreamingResponse(captureStream())
+    return new Response(sseStream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      }
+    })
   } catch (error) {
     console.error('Error in chat stream:', error)
     return handleStreamError(error)
   }
+}
+
+/**
+ * Process the OpenAI stream, handling tool calls transparently
+ */
+async function processStream(
+  stream: AsyncIterable<any>,
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder,
+  ctx: {
+    sessionId: string
+    userIdInt: number
+    courseId: string
+    formattedMessages: any[]
+    streamOptions: any
+    readableMaterials: any[]
+    isGPT5Model: boolean
+    tools: any[] | undefined
+  }
+) {
+  let fullResponse = ''
+  let toolCallAccumulator: { id: string; name: string; arguments: string } | null = null
+
+  for await (const event of stream) {
+    // --- Chat Completions API tool call handling ---
+    if (event.choices?.[0]?.delta?.tool_calls) {
+      const tc = event.choices[0].delta.tool_calls[0]
+      if (tc.id) {
+        toolCallAccumulator = { id: tc.id, name: tc.function?.name || '', arguments: '' }
+      }
+      if (tc.function?.arguments) {
+        toolCallAccumulator!.arguments += tc.function.arguments
+      }
+
+      // Check if this chunk also has a finish_reason
+      if (event.choices[0].finish_reason === 'tool_calls') {
+        // Tool call complete — execute it
+        const result = await executeToolCall(toolCallAccumulator!, ctx, controller, encoder)
+
+        // Make a second API call with the tool result
+        const messagesWithToolResult = [
+          { role: 'system', content: ctx.streamOptions.systemPrompt },
+          ...ctx.formattedMessages,
+          {
+            role: 'assistant',
+            content: null,
+            tool_calls: [{
+              id: toolCallAccumulator!.id,
+              type: 'function',
+              function: {
+                name: toolCallAccumulator!.name,
+                arguments: toolCallAccumulator!.arguments,
+              }
+            }]
+          },
+          {
+            role: 'tool',
+            tool_call_id: toolCallAccumulator!.id,
+            content: result,
+          }
+        ]
+
+        // Create follow-up stream (without tools to prevent infinite loops)
+        const followUpOptions = { ...ctx.streamOptions }
+        delete followUpOptions.systemPrompt
+        followUpOptions.openAIParams = {} // No tools on follow-up
+
+        const followUpStream = await createChatStream(
+          messagesWithToolResult as any,
+          { ...followUpOptions, systemPrompt: undefined }
+        )
+
+        // Process the follow-up stream for the actual response
+        await processStream(followUpStream, controller, encoder, {
+          ...ctx,
+          tools: undefined, // prevent further tool calls
+        })
+        return
+      }
+      continue
+    }
+
+    // --- Normal content handling ---
+    let delta = ''
+    let isFinished = false
+
+    if (event.choices) {
+      delta = event.choices[0]?.delta?.content || ''
+      isFinished = !!event.choices[0]?.finish_reason
+    } else if (event.type === 'response.output_text.delta') {
+      delta = event.delta || ''
+    } else if (event.type === 'response.done' || event.type === 'response.completed') {
+      isFinished = true
+    }
+
+    if (delta) {
+      fullResponse += delta
+      const sseData = `data: ${JSON.stringify({ delta, done: false })}\n\n`
+      controller.enqueue(encoder.encode(sseData))
+    }
+
+    if (isFinished && fullResponse) {
+      const tokenCount = estimateTokenCount(fullResponse)
+
+      try {
+        await prisma.chatMessage.create({
+          data: {
+            sessionId: ctx.sessionId,
+            userId: ctx.userIdInt,
+            role: 'ASSISTANT',
+            content: fullResponse,
+            tokenCount
+          }
+        })
+
+        await prisma.chatSession.update({
+          where: { id: ctx.sessionId },
+          data: { updatedAt: new Date() }
+        })
+      } catch (error) {
+        console.error('Error saving ASSISTANT message:', error)
+      }
+
+      const doneData = `data: ${JSON.stringify({ delta: '', done: true, finishReason: 'stop' })}\n\n`
+      controller.enqueue(encoder.encode(doneData))
+      return
+    }
+  }
+
+  // If stream ended without explicit finish (edge case)
+  if (fullResponse) {
+    const tokenCount = estimateTokenCount(fullResponse)
+    try {
+      await prisma.chatMessage.create({
+        data: {
+          sessionId: ctx.sessionId,
+          userId: ctx.userIdInt,
+          role: 'ASSISTANT',
+          content: fullResponse,
+          tokenCount
+        }
+      })
+      await prisma.chatSession.update({
+        where: { id: ctx.sessionId },
+        data: { updatedAt: new Date() }
+      })
+    } catch (error) {
+      console.error('Error saving ASSISTANT message:', error)
+    }
+    const doneData = `data: ${JSON.stringify({ delta: '', done: true, finishReason: 'stop' })}\n\n`
+    controller.enqueue(encoder.encode(doneData))
+  }
+}
+
+/**
+ * Execute a read_material tool call
+ */
+async function executeToolCall(
+  toolCall: { id: string; name: string; arguments: string },
+  ctx: { readableMaterials: any[]; courseId: string },
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder,
+): Promise<string> {
+  if (toolCall.name !== 'read_material') {
+    return JSON.stringify({ error: `Unknown tool: ${toolCall.name}` })
+  }
+
+  let args: { filename: string }
+  try {
+    args = JSON.parse(toolCall.arguments)
+  } catch {
+    return JSON.stringify({ error: 'Invalid tool arguments' })
+  }
+
+  // Find matching material
+  const material = ctx.readableMaterials.find(
+    m => m.originalName === args.filename || m.filename === args.filename
+  )
+
+  if (!material || !material.extractedText) {
+    return JSON.stringify({ error: `Material not found or has no extractable text: ${args.filename}` })
+  }
+
+  // Send tool call indicator to client
+  const toolEvent = `data: ${JSON.stringify({
+    delta: '',
+    done: false,
+    toolCall: { name: 'read_material', filename: material.originalName }
+  })}\n\n`
+  controller.enqueue(encoder.encode(toolEvent))
+
+  // Truncate to reasonable size (max ~30k tokens)
+  const text = truncateToTokenLimit(material.extractedText, 30000)
+
+  return text
 }

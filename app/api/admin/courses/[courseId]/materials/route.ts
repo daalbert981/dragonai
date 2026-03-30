@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { uploadFile, generateUniqueFilename } from '@/lib/gcs';
+import { extractTextFromFile } from '@/lib/file-parser';
 
 export async function GET(
   request: NextRequest,
@@ -112,6 +113,16 @@ export async function POST(
       `courses/${params.courseId}/materials`
     );
 
+    // Attempt text extraction for RAG (best-effort, non-blocking)
+    let extractedText: string | null = null
+    try {
+      const buffer = Buffer.from(await file.arrayBuffer())
+      extractedText = await extractTextFromFile(buffer, file.name, file.type)
+    } catch (err) {
+      // Text extraction failed (e.g., PDF, unsupported type) — continue without it
+      console.log(`[MATERIALS] Text extraction skipped for ${file.name}: ${err instanceof Error ? err.message : 'Unknown'}`)
+    }
+
     // Save material to database
     const material = await prisma.courseMaterial.create({
       data: {
@@ -122,6 +133,7 @@ export async function POST(
         mimeType: uploadResult.mimeType,
         storageUrl: uploadResult.url,
         description: description || null,
+        extractedText,
       },
     });
 

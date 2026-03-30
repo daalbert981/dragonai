@@ -170,6 +170,10 @@ export interface StreamChunk {
   delta: string
   done: boolean
   error?: string
+  toolCall?: {
+    name: string
+    filename: string
+  }
 }
 
 // Client-side message state (for optimistic updates)

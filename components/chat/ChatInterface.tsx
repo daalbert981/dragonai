@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Loader2, StopCircle } from 'lucide-react'
+import { Send, Loader2, StopCircle, FileSearch } from 'lucide-react'
 import { ChatMessage } from './ChatMessage'
 import { FileUpload } from './FileUpload'
 import { ErrorBoundary, ChatErrorFallback } from './ErrorBoundary'
@@ -54,6 +54,7 @@ export function ChatInterface({
   const [uploadedFileIds, setUploadedFileIds] = useState<string[]>([])
   const [uploadComponentKey, setUploadComponentKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [readingMaterial, setReadingMaterial] = useState<string | null>(null)
 
   /**
    * Update messages and sessionId when props change (e.g., switching sessions)
@@ -251,7 +252,15 @@ export function ChatInterface({
                 throw new Error(data.error)
               }
 
+              // Handle tool call indicator
+              if (data.toolCall) {
+                setReadingMaterial(data.toolCall.filename)
+                continue
+              }
+
               if (data.delta) {
+                // Clear the reading indicator once content starts
+                if (readingMaterial) setReadingMaterial(null)
                 accumulatedContent += data.delta
 
                 // Update message with new content
@@ -307,6 +316,7 @@ export function ChatInterface({
       }
     } finally {
       setIsStreaming(false)
+      setReadingMaterial(null)
       abortControllerRef.current = null
     }
   }
@@ -422,6 +432,14 @@ export function ChatInterface({
 
         {/* Input area */}
         <div className="border-t border-border bg-background p-2 sm:p-4">
+          {/* Reading material indicator */}
+          {readingMaterial && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 px-1">
+              <FileSearch className="h-3.5 w-3.5 animate-pulse" />
+              <span>Reading {readingMaterial}...</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-2">
             {/* File upload - always visible */}
             <FileUpload
