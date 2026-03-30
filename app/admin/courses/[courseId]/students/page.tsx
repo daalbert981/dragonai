@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { StudentTable } from '@/components/admin/StudentTable';
 import { AddStudentModal } from '@/components/admin/AddStudentModal';
 import { BulkUploadStudentsModal } from '@/components/admin/BulkUploadStudentsModal';
+import { RegistrationTokenManager } from '@/components/admin/RegistrationTokenManager';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function StudentsManagementPage({
@@ -112,6 +113,8 @@ export default function StudentsManagementPage({
           {course.name} ({course.code})
         </p>
       </div>
+
+      <RegistrationTokenManager courseId={params.courseId} />
 
       <Card>
         <CardHeader>

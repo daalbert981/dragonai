@@ -10,7 +10,7 @@ enum UserRole {
 }
 
 // Define public routes that don't require authentication
-const publicRoutes = ['/', '/login']
+const publicRoutes = ['/', '/login', '/register']
 
 // Define role-based route mappings (SUPERADMIN has access to all routes)
 const roleRoutes: Record<string, UserRole[]> = {
@@ -82,7 +82,7 @@ export async function middleware(request: NextRequest) {
   // Allow access to public routes
   if (publicRoutes.includes(pathname)) {
     // If authenticated user tries to access login/register, redirect to dashboard
-    if (isAuthenticated && userRole && pathname === '/login') {
+    if (isAuthenticated && userRole && (pathname === '/login' || pathname === '/register')) {
       return NextResponse.redirect(
         new URL(dashboardPaths[userRole], request.url)
       )

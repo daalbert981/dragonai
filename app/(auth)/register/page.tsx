@@ -1,12 +1,11 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { signIn, getSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { loginSchema, type LoginInput } from '@/types'
+import { tokenRegistrationSchema, type TokenRegistrationInput } from '@/types'
 import { APP_VERSION, APP_COPYRIGHT } from '@/lib/version'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,21 +17,20 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 
-export default function LoginPage() {
+export default function RegisterPage() {
   return (
     <Suspense>
-      <LoginForm />
+      <RegisterForm />
     </Suspense>
   )
 }
 
-function LoginForm() {
+function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl')
-  const registered = searchParams.get('registered')
+  const tokenFromUrl = searchParams.get('token') || ''
 
   const [error, setError] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
@@ -41,49 +39,35 @@ function LoginForm() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<TokenRegistrationInput>({
+    resolver: zodResolver(tokenRegistrationSchema),
     defaultValues: {
-      identifier: '',
+      username: '',
       password: '',
+      confirmPassword: '',
+      registrationToken: tokenFromUrl,
     },
   })
 
-  const onSubmit = async (data: LoginInput) => {
+  const onSubmit = async (data: TokenRegistrationInput) => {
     try {
       setIsLoading(true)
       setError('')
 
-      const result = await signIn('credentials', {
-        identifier: data.identifier,
-        password: data.password,
-        redirect: false,
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
       })
 
-      if (result?.error) {
-        setError('Invalid credentials')
+      const result = await response.json()
+
+      if (!response.ok) {
+        setError(result.error || 'Registration failed. Please try again.')
         return
       }
 
-      if (!result?.ok) {
-        setError('Authentication failed. Please try again.')
-        return
-      }
-
-      // If there's an explicit callback URL, use it; otherwise route by role
-      if (callbackUrl) {
-        router.push(callbackUrl)
-      } else {
-        const session = await getSession()
-        const role = (session?.user as any)?.role
-        const dashboards: Record<string, string> = {
-          STUDENT: '/student',
-          INSTRUCTOR: '/admin',
-          SUPERADMIN: '/superadmin',
-        }
-        router.push(dashboards[role] || '/student')
-      }
-      router.refresh()
+      router.push('/login?registered=true')
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
     } finally {
@@ -97,27 +81,19 @@ function LoginForm() {
         <div className="mb-6 sm:mb-8 text-center">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Dragon AI</h1>
           <p className="mt-2 text-gray-600">
-            Your AI-powered teaching assistant
+            Create your student account
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Sign in to your account</CardTitle>
+            <CardTitle>Register</CardTitle>
             <CardDescription>
-              Enter your credentials to access your dashboard
+              Enter the registration token provided by your instructor
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {/* Success Message (after registration) */}
-              {registered && (
-                <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm text-green-800">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Account created successfully. Please sign in.</span>
-                </div>
-              )}
-
               {/* Error Message */}
               {error && (
                 <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-800">
@@ -126,39 +102,70 @@ function LoginForm() {
                 </div>
               )}
 
-              {/* Identifier Field (Email or Username) */}
+              {/* Registration Token */}
               <div className="space-y-2">
-                <Label htmlFor="identifier">Email or Username</Label>
+                <Label htmlFor="registrationToken">Registration Token</Label>
                 <Input
-                  id="identifier"
+                  id="registrationToken"
                   type="text"
-                  placeholder="Email or username"
-                  {...register('identifier')}
+                  placeholder="Paste your registration token"
+                  {...register('registrationToken')}
                   disabled={isLoading}
                 />
-                {errors.identifier && (
-                  <p className="text-sm text-red-600">{errors.identifier.message}</p>
+                {errors.registrationToken && (
+                  <p className="text-sm text-red-600">{errors.registrationToken.message}</p>
                 )}
               </div>
 
-              {/* Password Field */}
+              {/* Username */}
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Choose a username"
+                  {...register('username')}
+                  disabled={isLoading}
+                  autoComplete="username"
+                />
+                {errors.username && (
+                  <p className="text-sm text-red-600">{errors.username.message}</p>
+                )}
+              </div>
+
+              {/* Password */}
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="At least 8 characters"
                   {...register('password')}
                   disabled={isLoading}
+                  autoComplete="new-password"
                 />
                 {errors.password && (
-                  <p className="text-sm text-red-600">
-                    {errors.password.message}
-                  </p>
+                  <p className="text-sm text-red-600">{errors.password.message}</p>
                 )}
               </div>
 
-              {/* Submit Button */}
+              {/* Confirm Password */}
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Repeat your password"
+                  {...register('confirmPassword')}
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                />
+                {errors.confirmPassword && (
+                  <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>
+                )}
+              </div>
+
+              {/* Submit */}
               <Button
                 type="submit"
                 className="w-full"
@@ -167,10 +174,10 @@ function LoginForm() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
+                    Creating account...
                   </>
                 ) : (
-                  'Sign in'
+                  'Create Account'
                 )}
               </Button>
             </form>
@@ -178,9 +185,9 @@ function LoginForm() {
         </Card>
 
         <p className="mt-6 text-center text-sm text-gray-600">
-          Have a registration token?{' '}
-          <Link href="/register" className="font-medium text-primary hover:underline">
-            Create an account
+          Already have an account?{' '}
+          <Link href="/login" className="font-medium text-primary hover:underline">
+            Sign in
           </Link>
         </p>
 

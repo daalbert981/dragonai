@@ -52,6 +52,8 @@ model Course {
   sessionRetentionDays Int?     @map("session_retention_days") // null for forever/never, number for custom
   sessionRetentionHours Int?    @map("session_retention_hours") // additional hours for custom retention
   isActive             Boolean  @default(true) @map("is_active")
+  registrationToken    String?  @unique @map("registration_token")
+  registrationTokenExpiry DateTime? @map("registration_token_expiry")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 

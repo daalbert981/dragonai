@@ -258,5 +258,17 @@ export const RATE_LIMITS = {
   AUTH: {
     maxRequests: 5,
     windowSeconds: 15 * 60
+  },
+
+  // Public registration: 5 attempts per 15 minutes per IP
+  REGISTRATION: {
+    maxRequests: 5,
+    windowSeconds: 15 * 60
+  },
+
+  // Authenticated course enrollment with token: 10 attempts per 15 minutes
+  TOKEN_ENROLL: {
+    maxRequests: 10,
+    windowSeconds: 15 * 60
   }
 } as const

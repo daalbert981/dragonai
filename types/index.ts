@@ -192,7 +192,7 @@ export interface UploadProgress {
 
 // Zod validation schemas
 export const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  identifier: z.string().min(1, 'Email or username is required'),
   password: z.string().min(1, 'Password is required'),
   rememberMe: z.boolean().optional(),
 })
@@ -212,8 +212,27 @@ export const registerSchema = z.object({
   path: ['confirmPassword'],
 })
 
+export const tokenRegistrationSchema = z.object({
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(50, 'Username must be at most 50 characters')
+    .regex(/^[a-zA-Z0-9_.-]+$/, 'Username can only contain letters, numbers, underscores, dots, and hyphens'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string(),
+  registrationToken: z.string().min(1, 'Registration token is required'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+})
+
+export const enrollWithTokenSchema = z.object({
+  registrationToken: z.string().min(1, 'Registration token is required'),
+})
+
 export type LoginInput = z.infer<typeof loginSchema>
 export type RegisterInput = z.infer<typeof registerSchema>
+export type TokenRegistrationInput = z.infer<typeof tokenRegistrationSchema>
+export type EnrollWithTokenInput = z.infer<typeof enrollWithTokenSchema>
 
 // Password strength levels
 export enum PasswordStrength {

@@ -8,19 +8,20 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: 'credentials',
       credentials: {
-        email: { label: 'Email', type: 'email' },
+        identifier: { label: 'Email or Username', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        if (!credentials?.identifier || !credentials?.password) {
           throw new Error('Invalid credentials')
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
-        })
+        const identifier = credentials.identifier.trim()
+        const isEmail = identifier.includes('@')
+
+        const user = isEmail
+          ? await prisma.user.findUnique({ where: { email: identifier } })
+          : await prisma.user.findUnique({ where: { username: identifier } })
 
         if (!user || !user.password) {
           throw new Error('Invalid credentials')

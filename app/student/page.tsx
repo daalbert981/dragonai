@@ -6,13 +6,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { BookOpen, MessageSquare, FileText } from 'lucide-react'
 import { DashboardHeader } from '@/components/DashboardHeader'
+import { JoinCourseForm } from '@/components/student/JoinCourseForm'
 
 async function getEnrolledCourses(userId: number) {
   const enrollments = await prisma.courseEnrollment.findMany({
     where: { userId },
     include: {
       course: {
-        include: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          description: true,
+          isActive: true,
           _count: {
             select: {
               materials: true,
@@ -63,13 +69,15 @@ export default async function StudentDashboard() {
           </p>
         </div>
 
+      <JoinCourseForm />
+
       {courses.length === 0 ? (
         <Card>
           <CardContent className="text-center py-16">
             <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No courses yet</h3>
             <p className="text-muted-foreground">
-              You are not enrolled in any courses. Contact your instructor to get enrolled.
+              Use a registration token from your instructor to join a course.
             </p>
           </CardContent>
         </Card>

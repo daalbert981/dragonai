@@ -7,6 +7,7 @@
  * - Content Security Policy helpers
  */
 
+import { timingSafeEqual } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { CourseRole } from '@/types'
 
@@ -76,7 +77,9 @@ export async function validateCourseAccess(
         }
       },
       include: {
-        course: true
+        course: {
+          select: { isActive: true }
+        }
       }
     })
 
@@ -114,7 +117,15 @@ export async function getCourseEnrollment(userId: string, courseId: string) {
         }
       },
       include: {
-        course: true,
+        course: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            description: true,
+            isActive: true,
+          }
+        },
         user: {
           select: {
             id: true,
@@ -286,4 +297,25 @@ export function truncateString(str: string, maxLength: number = 1000): string {
  */
 export function isAlphanumericSafe(str: string): boolean {
   return /^[a-zA-Z0-9_\-. ]+$/.test(str)
+}
+
+/**
+ * Constant-time string comparison to prevent timing attacks
+ */
+export function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  const bufA = Buffer.from(a)
+  const bufB = Buffer.from(b)
+  return timingSafeEqual(bufA, bufB)
+}
+
+/**
+ * Extract client IP from request headers (for rate limiting)
+ */
+export function getClientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) {
+    return forwarded.split(',')[0].trim()
+  }
+  return request.headers.get('x-real-ip') || 'unknown'
 }
