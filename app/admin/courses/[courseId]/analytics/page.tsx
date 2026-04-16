@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Loader2, Users, MessageSquare, TrendingUp, FileText, Activity } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, MessageSquare, TrendingUp, FileText, Activity, Upload, Download } from 'lucide-react';
 
 interface AnalyticsData {
   overview: {
@@ -16,6 +16,10 @@ interface AnalyticsData {
     recentMessages: number;
     fileUploads: number;
     avgMessagesPerSession: number;
+    materialsTotal?: number;
+    materialsRecent?: number;
+    downloadsTotal?: number;
+    downloadsRecent?: number;
   };
   topStudents: Array<{
     userId: number;
@@ -31,6 +35,21 @@ interface AnalyticsData {
     labels: string[];
     data: number[];
   };
+  activityByDate?: {
+    labels: string[];
+    messages: number[];
+    sessions: number[];
+    activeStudents: number[];
+    attachments: number[];
+    materialsUploaded: number[];
+    materialsDownloaded: number[];
+  };
+  topDownloaded?: Array<{
+    materialId: string;
+    originalName: string;
+    downloadCount: number;
+  }>;
+  window?: { days: number; timezone: string };
 }
 
 export default function CourseAnalyticsPage({
@@ -41,14 +60,18 @@ export default function CourseAnalyticsPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [windowDays, setWindowDays] = useState<7 | 30 | 90>(30);
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [params.courseId]);
+    fetchAnalytics(windowDays);
+  }, [params.courseId, windowDays]);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (days: number) => {
     try {
-      const response = await fetch(`/api/admin/courses/${params.courseId}/analytics`);
+      setLoading(true);
+      const response = await fetch(
+        `/api/admin/courses/${params.courseId}/analytics?days=${days}`
+      );
       if (!response.ok) throw new Error('Failed to fetch analytics');
       const data = await response.json();
       setAnalytics(data);
@@ -98,11 +121,29 @@ export default function CourseAnalyticsPage({
         </Button>
       </Link>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Course Analytics</h1>
-        <p className="text-muted-foreground">
-          Engagement metrics for this course only
-        </p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Course Analytics</h1>
+          <p className="text-muted-foreground">
+            Engagement metrics for this course only
+            {analytics.window?.timezone ? ` · timezone ${analytics.window.timezone}` : ''}
+          </p>
+        </div>
+        <div className="inline-flex rounded-md border bg-muted/30 p-1 self-start">
+          {([7, 30, 90] as const).map((d) => (
+            <button
+              key={d}
+              onClick={() => setWindowDays(d)}
+              className={`px-3 py-1 text-xs font-medium rounded ${
+                windowDays === d
+                  ? 'bg-background shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Overview Cards */}
@@ -237,6 +278,88 @@ export default function CourseAnalyticsPage({
         </Card>
       </div>
 
+      {/* File Activity Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Course Materials Uploaded</CardTitle>
+            <Upload className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overview.materialsTotal ?? 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {overview.materialsRecent ?? 0} in last {windowDays} days
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Material Downloads</CardTitle>
+            <Download className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overview.downloadsTotal ?? 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {overview.downloadsRecent ?? 0} in last {windowDays} days
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Chat Attachments</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overview.fileUploads}</div>
+            <p className="text-xs text-muted-foreground">
+              From students in chat
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Activity by Calendar Date */}
+      {analytics.activityByDate && analytics.activityByDate.labels.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Activity by Date</CardTitle>
+            <CardDescription>
+              Daily breakdown for the last {windowDays} days
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DateTimelineChart data={analytics.activityByDate} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Top Downloaded Materials */}
+      {analytics.topDownloaded && analytics.topDownloaded.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Most Downloaded Materials</CardTitle>
+            <CardDescription>Top 5 by download count (all time)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {analytics.topDownloaded.map((m, i) => (
+                <div key={m.materialId} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary font-semibold text-xs flex-shrink-0">
+                      {i + 1}
+                    </div>
+                    <p className="text-sm truncate">{m.originalName}</p>
+                  </div>
+                  <p className="text-sm font-semibold flex-shrink-0">
+                    {m.downloadCount} {m.downloadCount === 1 ? 'download' : 'downloads'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Activity by Day Chart */}
       <Card className="mb-6">
         <CardHeader>
@@ -311,6 +434,68 @@ export default function CourseAnalyticsPage({
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+type DateSeries = NonNullable<AnalyticsData['activityByDate']>;
+
+function DateTimelineChart({ data }: { data: DateSeries }) {
+  const series: Array<{ key: keyof DateSeries; label: string; color: string }> = [
+    { key: 'messages', label: 'Messages', color: 'bg-primary/70' },
+    { key: 'sessions', label: 'New sessions', color: 'bg-blue-500/70' },
+    { key: 'activeStudents', label: 'Active students', color: 'bg-emerald-500/70' },
+    { key: 'attachments', label: 'Chat attachments', color: 'bg-amber-500/70' },
+    { key: 'materialsUploaded', label: 'Materials uploaded', color: 'bg-purple-500/70' },
+    { key: 'materialsDownloaded', label: 'Material downloads', color: 'bg-rose-500/70' },
+  ];
+
+  const max = Math.max(
+    1,
+    ...series.flatMap((s) => (data[s.key] as number[]) || [0])
+  );
+
+  // Show ticks every 7 days for readability
+  const tickEvery = data.labels.length > 30 ? 14 : data.labels.length > 14 ? 7 : 1;
+
+  return (
+    <div className="space-y-4">
+      {series.map((s) => {
+        const values = (data[s.key] as number[]) || [];
+        const total = values.reduce((a, b) => a + b, 0);
+        return (
+          <div key={s.key}>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium">{s.label}</p>
+              <p className="text-xs text-muted-foreground">{total} total</p>
+            </div>
+            <div className="flex items-end gap-px h-16 bg-muted/30 rounded-sm p-1">
+              {values.map((v, i) => {
+                const h = max > 0 ? (v / max) * 100 : 0;
+                return (
+                  <div
+                    key={i}
+                    title={`${data.labels[i]}: ${v}`}
+                    className="flex-1 min-w-0 flex items-end"
+                  >
+                    <div
+                      className={`w-full rounded-sm ${s.color}`}
+                      style={{ height: `${h}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      <div className="flex justify-between text-[10px] text-muted-foreground pt-1">
+        {data.labels.map((label, i) =>
+          i % tickEvery === 0 || i === data.labels.length - 1 ? (
+            <span key={i}>{label.slice(5)}</span>
+          ) : null
+        )}
+      </div>
     </div>
   );
 }

@@ -111,10 +111,29 @@ model CourseMaterial {
   extractedText     String?  @map("extracted_text") @db.Text
   uploadedAt        DateTime @default(now()) @map("uploaded_at")
 
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course    Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  downloads MaterialDownload[]
 
   @@index([courseId])
   @@map("course_material")
+}
+
+// Material download event log (additive; counts only — no content captured)
+model MaterialDownload {
+  id           String   @id @default(cuid())
+  materialId   String   @map("material_id")
+  courseId     String   @map("course_id")
+  userId       Int      @map("user_id")
+  userRole     String?  @map("user_role")
+  downloadedAt DateTime @default(now()) @map("downloaded_at")
+
+  material CourseMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([materialId])
+  @@index([userId])
+  @@index([downloadedAt])
+  @@map("material_download")
 }
 
 // Chat session model

@@ -252,7 +252,10 @@ export default function MaterialsManagementPage({
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              <a href={material.storageUrl} download>
+                              <a
+                                href={`/api/courses/${params.courseId}/materials/${material.id}/download`}
+                                download={material.originalName}
+                              >
                                 <Button variant="ghost" size="icon">
                                   <Download className="h-4 w-4" />
                                 </Button>
