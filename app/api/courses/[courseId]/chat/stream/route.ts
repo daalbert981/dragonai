@@ -104,6 +104,23 @@ export async function GET(
       )
     }
 
+    // Fetch active class notes (activeAt <= now, expiresAt null or > now)
+    const now = new Date()
+    let activeNotes: { type: string; title: string; content: string }[] = []
+    try {
+      activeNotes = await prisma.classNote.findMany({
+        where: {
+          courseId,
+          activeAt: { lte: now },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+        orderBy: [{ sortOrder: 'asc' }],
+        select: { type: true, title: true, content: true },
+      })
+    } catch {
+      // Table may not exist yet — fall through to legacy fields
+    }
+
     // Get conversation history (limit configured per course)
     const messageLimit = course.messageHistoryLimit || 10
     const messages = await prisma.chatMessage.findMany({
@@ -208,16 +225,28 @@ export async function GET(
       syllabusSection = `\n\nCourse Syllabus:\n${course.syllabus}`
     }
 
-    // Build prior classes section if available
+    // Build prior classes section: structured notes + legacy field
+    const priorNotes = activeNotes
+      .filter((n) => n.type === 'PRIOR')
+      .map((n) => `[${n.title}]\n${n.content}`)
+      .join('\n\n')
+    const priorLegacy = course.priorClasses || ''
+    const priorCombined = [priorNotes, priorLegacy].filter(Boolean).join('\n\n')
     let priorClassesSection = ''
-    if (course.priorClasses) {
-      priorClassesSection = `\n\n<prior_classes>\n${course.priorClasses}\n</prior_classes>`
+    if (priorCombined) {
+      priorClassesSection = `\n\n<prior_classes>\n${priorCombined}\n</prior_classes>`
     }
 
-    // Build upcoming classes section if available
+    // Build upcoming classes section: structured notes + legacy field
+    const upcomingNotes = activeNotes
+      .filter((n) => n.type === 'UPCOMING')
+      .map((n) => `[${n.title}]\n${n.content}`)
+      .join('\n\n')
+    const upcomingLegacy = course.upcomingClasses || ''
+    const upcomingCombined = [upcomingNotes, upcomingLegacy].filter(Boolean).join('\n\n')
     let upcomingClassesSection = ''
-    if (course.upcomingClasses) {
-      upcomingClassesSection = `\n\n<upcoming_classes>\n${course.upcomingClasses}\n</upcoming_classes>`
+    if (upcomingCombined) {
+      upcomingClassesSection = `\n\n<upcoming_classes>\n${upcomingCombined}\n</upcoming_classes>`
     }
 
     // Create system prompt with course context

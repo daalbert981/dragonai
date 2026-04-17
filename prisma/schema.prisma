@@ -61,6 +61,7 @@ model Course {
   instructors  CourseInstructor[]
   enrollments  CourseEnrollment[]
   materials    CourseMaterial[]
+  classNotes   ClassNote[]
 
   @@map("course")
 }
@@ -196,6 +197,27 @@ model FileUpload {
   @@index([messageId])
   @@index([userId])
   @@map("file_upload")
+}
+
+// Structured class note (replaces freeform prior/upcoming text fields)
+model ClassNote {
+  id         String    @id @default(cuid())
+  courseId   String    @map("course_id")
+  type       String    // PRIOR or UPCOMING
+  title      String
+  content    String    @db.Text
+  activeAt   DateTime  @map("active_at")
+  expiresAt  DateTime? @map("expires_at")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([courseId, type])
+  @@index([activeAt])
+  @@map("class_note")
 }
 
 // Class schedule model

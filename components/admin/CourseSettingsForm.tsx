@@ -17,6 +17,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Upload, Sparkles, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { extractTextFromPDF, isPDF } from '@/lib/pdf-extractor-client';
+import { ClassNotesManager } from './ClassNotesManager';
 
 interface CourseSettingsFormProps {
   course: {
@@ -353,33 +354,44 @@ export function CourseSettingsForm({ course }: CourseSettingsFormProps) {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="priorClasses">Prior Classes Information</Label>
-            <Textarea
-              id="priorClasses"
-              value={formData.priorClasses}
-              onChange={(e) => setFormData({ ...formData, priorClasses: e.target.value })}
-              rows={4}
-              placeholder="Information about previous class sessions (topics covered, assignments given, discussions held, etc.)"
-            />
-            <p className="text-xs text-muted-foreground">
-              This will be included in the AI assistant's context as &lt;prior_classes&gt; with each request.
-            </p>
-          </div>
+          {/* Structured class notes replace the old textareas */}
+          <ClassNotesManager courseId={course.id} />
 
-          <div className="space-y-2">
-            <Label htmlFor="upcomingClasses">Upcoming Classes Information</Label>
-            <Textarea
-              id="upcomingClasses"
-              value={formData.upcomingClasses}
-              onChange={(e) => setFormData({ ...formData, upcomingClasses: e.target.value })}
-              rows={4}
-              placeholder="Information about upcoming class sessions (topics to be covered, assignments due, exam dates, etc.)"
-            />
-            <p className="text-xs text-muted-foreground">
-              This will be included in the AI assistant's context as &lt;upcoming_classes&gt; with each request.
-            </p>
-          </div>
+          {/* Legacy text fields — only shown if they have content */}
+          {(formData.priorClasses || formData.upcomingClasses) && (
+            <details className="rounded-md border p-3">
+              <summary className="text-xs font-medium text-muted-foreground cursor-pointer">
+                Legacy class notes (text fields from before structured notes)
+              </summary>
+              <div className="space-y-3 mt-3">
+                {formData.priorClasses && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="priorClasses" className="text-xs">Prior Classes (legacy)</Label>
+                    <Textarea
+                      id="priorClasses"
+                      value={formData.priorClasses}
+                      onChange={(e) => setFormData({ ...formData, priorClasses: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+                )}
+                {formData.upcomingClasses && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="upcomingClasses" className="text-xs">Upcoming Classes (legacy)</Label>
+                    <Textarea
+                      id="upcomingClasses"
+                      value={formData.upcomingClasses}
+                      onChange={(e) => setFormData({ ...formData, upcomingClasses: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  These legacy fields are still included in the AI context. You can migrate their content into structured notes above, then clear them here.
+                </p>
+              </div>
+            </details>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
