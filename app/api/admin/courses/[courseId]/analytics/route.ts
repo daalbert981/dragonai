@@ -198,7 +198,7 @@ export async function GET(
     // 9b. Material downloads (best-effort — table may not yet exist)
     let downloadsTotal = 0
     let downloadsRecent = 0
-    let recentDownloadsList: { downloadedAt: Date }[] = []
+    let recentDownloadsList: { downloadedAt: Date; userId: number }[] = []
     let topDownloadedRaw: { materialId: string; _count: { id: number } }[] = []
     try {
       downloadsTotal = await (prisma as any).materialDownload.count({
@@ -209,7 +209,7 @@ export async function GET(
       })
       recentDownloadsList = await (prisma as any).materialDownload.findMany({
         where: { courseId: params.courseId, downloadedAt: { gte: windowStart } },
-        select: { downloadedAt: true },
+        select: { downloadedAt: true, userId: true },
       })
       topDownloadedRaw = await (prisma as any).materialDownload.groupBy({
         by: ['materialId'],
@@ -248,7 +248,16 @@ export async function GET(
           session: { courseId: params.courseId },
         },
       },
-      select: { uploadedAt: true },
+      select: { uploadedAt: true, userId: true },
+    })
+
+    // 9e. Recent enrollments (for per-date new-enrollment series)
+    const recentEnrollmentsList = await prisma.courseEnrollment.findMany({
+      where: {
+        courseId: params.courseId,
+        enrolledAt: { gte: windowStart },
+      },
+      select: { enrolledAt: true, userId: true },
     })
 
     // 9d. Per-calendar-date activity series for the window (in course timezone)
@@ -283,15 +292,18 @@ export async function GET(
     const attachmentsByDate = emptyBuckets()
     const materialsByDate = emptyBuckets()
     const downloadsByDate = emptyBuckets()
-    const activeStudentsByDate: Record<string, Set<number>> = Object.fromEntries(
-      dateLabels.map((d) => [d, new Set<number>()])
-    )
+    const newEnrollmentsByDate = emptyBuckets()
+    const makeUserSetMap = (): Record<string, Set<number>> =>
+      Object.fromEntries(dateLabels.map((d) => [d, new Set<number>()]))
+    const chatUsersByDate = makeUserSetMap()
+    const anyActivityUsersByDate = makeUserSetMap()
 
     for (const m of recentMessagesList) {
       const k = formatDate(m.createdAt, timezone)
       if (k in messagesByDate) {
         messagesByDate[k]++
-        activeStudentsByDate[k].add(m.userId)
+        chatUsersByDate[k].add(m.userId)
+        anyActivityUsersByDate[k].add(m.userId)
       }
     }
     for (const s of recentSessionsList) {
@@ -300,7 +312,10 @@ export async function GET(
     }
     for (const a of recentAttachmentsList) {
       const k = formatDate(a.uploadedAt, timezone)
-      if (k in attachmentsByDate) attachmentsByDate[k]++
+      if (k in attachmentsByDate) {
+        attachmentsByDate[k]++
+        anyActivityUsersByDate[k].add(a.userId)
+      }
     }
     for (const m of recentMaterialsList) {
       const k = formatDate(m.uploadedAt, timezone)
@@ -308,14 +323,26 @@ export async function GET(
     }
     for (const d of recentDownloadsList) {
       const k = formatDate(d.downloadedAt, timezone)
-      if (k in downloadsByDate) downloadsByDate[k]++
+      if (k in downloadsByDate) {
+        downloadsByDate[k]++
+        anyActivityUsersByDate[k].add(d.userId)
+      }
+    }
+    for (const e of recentEnrollmentsList) {
+      const k = formatDate(e.enrolledAt, timezone)
+      if (k in newEnrollmentsByDate) {
+        newEnrollmentsByDate[k]++
+        anyActivityUsersByDate[k].add(e.userId)
+      }
     }
 
     const activityByDate = {
       labels: dateLabels,
       messages: dateLabels.map((d) => messagesByDate[d]),
       sessions: dateLabels.map((d) => sessionsByDate[d]),
-      activeStudents: dateLabels.map((d) => activeStudentsByDate[d].size),
+      activeStudents: dateLabels.map((d) => chatUsersByDate[d].size),
+      anyActivityStudents: dateLabels.map((d) => anyActivityUsersByDate[d].size),
+      newEnrollments: dateLabels.map((d) => newEnrollmentsByDate[d]),
       attachments: dateLabels.map((d) => attachmentsByDate[d]),
       materialsUploaded: dateLabels.map((d) => materialsByDate[d]),
       materialsDownloaded: dateLabels.map((d) => downloadsByDate[d]),

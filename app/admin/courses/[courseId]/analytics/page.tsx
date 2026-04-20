@@ -40,6 +40,8 @@ interface AnalyticsData {
     messages: number[];
     sessions: number[];
     activeStudents: number[];
+    anyActivityStudents: number[];
+    newEnrollments: number[];
     attachments: number[];
     materialsUploaded: number[];
     materialsDownloaded: number[];
@@ -445,7 +447,9 @@ function DateTimelineChart({ data }: { data: DateSeries }) {
   const series: Array<{ key: keyof DateSeries; label: string; color: string }> = [
     { key: 'messages', label: 'Messages', color: 'bg-primary/70' },
     { key: 'sessions', label: 'New sessions', color: 'bg-blue-500/70' },
-    { key: 'activeStudents', label: 'Active students', color: 'bg-emerald-500/70' },
+    { key: 'activeStudents', label: 'Students who chatted', color: 'bg-emerald-500/70' },
+    { key: 'anyActivityStudents', label: 'Any-activity students', color: 'bg-teal-500/70' },
+    { key: 'newEnrollments', label: 'New enrollments', color: 'bg-indigo-500/70' },
     { key: 'attachments', label: 'Chat attachments', color: 'bg-amber-500/70' },
     { key: 'materialsUploaded', label: 'Materials uploaded', color: 'bg-purple-500/70' },
     { key: 'materialsDownloaded', label: 'Material downloads', color: 'bg-rose-500/70' },
@@ -508,6 +512,8 @@ function DateBreakdownTable({ data }: { data: DateSeries }) {
     date,
     messages: data.messages[i] ?? 0,
     activeStudents: data.activeStudents[i] ?? 0,
+    anyActivityStudents: data.anyActivityStudents?.[i] ?? 0,
+    newEnrollments: data.newEnrollments?.[i] ?? 0,
     sessions: data.sessions[i] ?? 0,
     attachments: data.attachments[i] ?? 0,
     materialsUploaded: data.materialsUploaded[i] ?? 0,
@@ -520,6 +526,8 @@ function DateBreakdownTable({ data }: { data: DateSeries }) {
         (r) =>
           r.messages ||
           r.activeStudents ||
+          r.anyActivityStudents ||
+          r.newEnrollments ||
           r.sessions ||
           r.attachments ||
           r.materialsUploaded ||
@@ -563,8 +571,23 @@ function DateBreakdownTable({ data }: { data: DateSeries }) {
               <tr className="text-left">
                 <th className="px-3 py-2 font-medium">Date</th>
                 <th className="px-3 py-2 font-medium text-right">Messages</th>
-                <th className="px-3 py-2 font-medium text-right">
-                  Unique students
+                <th
+                  className="px-3 py-2 font-medium text-right"
+                  title="Unique students who sent at least one chat message that day"
+                >
+                  Students who chatted
+                </th>
+                <th
+                  className="px-3 py-2 font-medium text-right"
+                  title="Unique students who did any tracked activity that day: chat, upload, download, or enrolled"
+                >
+                  Any activity
+                </th>
+                <th
+                  className="px-3 py-2 font-medium text-right"
+                  title="Number of students who enrolled in this course on that day"
+                >
+                  New enrollments
                 </th>
                 <th className="px-3 py-2 font-medium text-right">Sessions</th>
                 <th className="px-3 py-2 font-medium text-right">Attachments</th>
@@ -586,6 +609,12 @@ function DateBreakdownTable({ data }: { data: DateSeries }) {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {r.activeStudents}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.anyActivityStudents}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.newEnrollments}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {r.sessions}
