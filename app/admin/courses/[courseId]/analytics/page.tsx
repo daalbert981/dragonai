@@ -482,7 +482,7 @@ function DateTimelineChart({ data }: { data: DateSeries }) {
                   <div
                     key={i}
                     title={`${data.labels[i]}: ${v}`}
-                    className="flex-1 min-w-0 flex items-end"
+                    className="flex-1 min-w-0 h-full flex items-end"
                   >
                     <div
                       className={`w-full rounded-sm ${s.color}`}
