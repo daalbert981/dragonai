@@ -455,11 +455,6 @@ function DateTimelineChart({ data }: { data: DateSeries }) {
     { key: 'materialsDownloaded', label: 'Material downloads', color: 'bg-rose-500/70' },
   ];
 
-  const max = Math.max(
-    1,
-    ...series.flatMap((s) => (data[s.key] as number[]) || [0])
-  );
-
   // Show ticks every 7 days for readability
   const tickEvery = data.labels.length > 30 ? 14 : data.labels.length > 14 ? 7 : 1;
 
@@ -468,15 +463,21 @@ function DateTimelineChart({ data }: { data: DateSeries }) {
       {series.map((s) => {
         const values = (data[s.key] as number[]) || [];
         const total = values.reduce((a, b) => a + b, 0);
+        // Each series gets its own max so small-count series (messages,
+        // chatters) aren't squashed by large-count series (enrollment bursts).
+        const seriesMax = Math.max(1, ...values);
+        const peak = values.reduce((a, b) => Math.max(a, b), 0);
         return (
           <div key={s.key}>
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-medium">{s.label}</p>
-              <p className="text-xs text-muted-foreground">{total} total</p>
+              <p className="text-xs text-muted-foreground">
+                {total} total · peak {peak}/day
+              </p>
             </div>
             <div className="flex items-end gap-px h-16 bg-muted/30 rounded-sm p-1">
               {values.map((v, i) => {
-                const h = max > 0 ? (v / max) * 100 : 0;
+                const h = v > 0 ? Math.max(6, (v / seriesMax) * 100) : 0;
                 return (
                   <div
                     key={i}
