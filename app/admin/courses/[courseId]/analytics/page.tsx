@@ -329,6 +329,7 @@ export default function CourseAnalyticsPage({
           </CardHeader>
           <CardContent>
             <DateTimelineChart data={analytics.activityByDate} />
+            <DateBreakdownTable data={analytics.activityByDate} />
           </CardContent>
         </Card>
       )}
@@ -496,6 +497,114 @@ function DateTimelineChart({ data }: { data: DateSeries }) {
           ) : null
         )}
       </div>
+    </div>
+  );
+}
+
+function DateBreakdownTable({ data }: { data: DateSeries }) {
+  const [showZeros, setShowZeros] = useState(false);
+
+  const rows = data.labels.map((date, i) => ({
+    date,
+    messages: data.messages[i] ?? 0,
+    activeStudents: data.activeStudents[i] ?? 0,
+    sessions: data.sessions[i] ?? 0,
+    attachments: data.attachments[i] ?? 0,
+    materialsUploaded: data.materialsUploaded[i] ?? 0,
+    materialsDownloaded: data.materialsDownloaded[i] ?? 0,
+  }));
+
+  const filtered = showZeros
+    ? rows
+    : rows.filter(
+        (r) =>
+          r.messages ||
+          r.activeStudents ||
+          r.sessions ||
+          r.attachments ||
+          r.materialsUploaded ||
+          r.materialsDownloaded
+      );
+
+  const ordered = [...filtered].reverse();
+
+  const formatDateLabel = (iso: string) => {
+    const d = new Date(`${iso}T12:00:00`);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  return (
+    <div className="mt-6">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-medium">Daily breakdown</p>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showZeros}
+            onChange={(e) => setShowZeros(e.target.checked)}
+            className="h-3 w-3"
+          />
+          Show days with no activity
+        </label>
+      </div>
+      {ordered.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-4">
+          No activity in this window.
+        </p>
+      ) : (
+        <div className="overflow-x-auto border rounded-md">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr className="text-left">
+                <th className="px-3 py-2 font-medium">Date</th>
+                <th className="px-3 py-2 font-medium text-right">Messages</th>
+                <th className="px-3 py-2 font-medium text-right">
+                  Unique students
+                </th>
+                <th className="px-3 py-2 font-medium text-right">Sessions</th>
+                <th className="px-3 py-2 font-medium text-right">Attachments</th>
+                <th className="px-3 py-2 font-medium text-right">Uploads</th>
+                <th className="px-3 py-2 font-medium text-right">Downloads</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ordered.map((r) => (
+                <tr key={r.date} className="border-t">
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <span className="font-medium">{formatDateLabel(r.date)}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {r.date}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.messages}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.activeStudents}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.sessions}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.attachments}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.materialsUploaded}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.materialsDownloaded}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
