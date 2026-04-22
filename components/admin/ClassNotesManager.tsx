@@ -207,12 +207,12 @@ export function ClassNotesManager({ courseId }: ClassNotesManagerProps) {
           </div>
           <div className="flex gap-2">
             <Link href={`/admin/courses/${courseId}/notes/reorder`}>
-              <Button variant="outline" size="sm">
+              <Button type="button" variant="outline" size="sm">
                 <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
                 Reorder
               </Button>
             </Link>
-            <Button size="sm" onClick={openNewForm} disabled={showForm}>
+            <Button type="button" size="sm" onClick={openNewForm} disabled={showForm}>
               <Plus className="mr-1 h-3.5 w-3.5" />
               Add Note
             </Button>
@@ -227,7 +227,7 @@ export function ClassNotesManager({ courseId }: ClassNotesManagerProps) {
               <p className="text-sm font-medium">
                 {editingId ? 'Edit Note' : 'New Note'}
               </p>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={resetForm}>
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={resetForm}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -295,10 +295,10 @@ export function ClassNotesManager({ courseId }: ClassNotesManagerProps) {
             )}
 
             <div className="flex justify-end gap-2 pt-1">
-              <Button variant="outline" size="sm" onClick={resetForm} disabled={saving}>
+              <Button type="button" variant="outline" size="sm" onClick={resetForm} disabled={saving}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving}>
+              <Button type="button" size="sm" onClick={handleSave} disabled={saving}>
                 {saving && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
                 {editingId ? 'Update' : 'Add Note'}
               </Button>
@@ -401,10 +401,11 @@ function NoteSection({
                 </div>
               </div>
               <div className="flex gap-1 flex-shrink-0">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(note)}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(note)}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
                 <Button
+                  type="button"
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
