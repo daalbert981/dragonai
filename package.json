@@ -1,6 +1,6 @@
 {
   "name": "dragon-ai",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 5782",
@@ -45,6 +45,7 @@
     "mammoth": "^1.11.0",
     "next": "^14.2.35",
     "next-auth": "^4.24.5",
+    "next-themes": "^0.4.6",
     "node-cron": "^4.2.1",
     "openai": "^6.8.1",
     "pdf-parse": "^1.1.1",

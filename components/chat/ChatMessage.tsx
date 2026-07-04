@@ -181,8 +181,8 @@ export function ChatMessage({
           <div className={cn(
             "prose prose-sm dark:prose-invert max-w-none",
             isUser
-              ? "prose-invert prose-p:text-primary-foreground prose-li:text-primary-foreground prose-strong:text-primary-foreground prose-headings:text-primary-foreground text-primary-foreground prose-a:text-blue-200 dark:prose-a:text-blue-200"
-              : "prose-a:text-blue-600 dark:prose-a:text-blue-400 text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-headings:text-foreground",
+              ? "prose-p:text-primary-foreground prose-li:text-primary-foreground prose-strong:text-primary-foreground prose-headings:text-primary-foreground text-primary-foreground prose-a:text-primary-foreground prose-a:underline"
+              : "prose-a:text-primary text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-headings:text-foreground",
             "prose-a:no-underline hover:prose-a:underline"
           )}>
             <ReactMarkdown
@@ -194,13 +194,7 @@ export function ChatMessage({
                     {...props}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      color: '#2563eb',
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                      fontWeight: '500'
-                    }}
-                    className="hover:text-blue-700 dark:hover:text-blue-300"
+                    className="cursor-pointer font-medium underline hover:opacity-80"
                   />
                 ),
                 // Preserve whitespace for code blocks

@@ -45,7 +45,7 @@ export function PasswordStrengthIndicator({
 
   return (
     <div className="mt-2 space-y-2">
-      <div className="flex h-2 w-full overflow-hidden rounded-full bg-gray-200">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
           className={`${config.color} ${config.width} transition-all duration-300`}
         />

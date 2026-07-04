@@ -14,9 +14,9 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
-      <h1 className="text-4xl font-bold text-gray-900">Something went wrong</h1>
-      <p className="mt-4 text-sm text-gray-600">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background">
+      <h1 className="text-4xl font-bold text-foreground">Something went wrong</h1>
+      <p className="mt-4 text-sm text-muted-foreground">
         An unexpected error occurred. Please try again.
       </p>
       <button

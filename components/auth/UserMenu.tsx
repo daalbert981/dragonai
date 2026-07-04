@@ -25,7 +25,7 @@ export function UserMenu() {
       case 'STUDENT':
         return 'bg-green-100 text-green-800'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-muted text-foreground'
     }
   }
 
@@ -55,7 +55,7 @@ export function UserMenu() {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="flex items-center gap-2 rounded-full p-1 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button className="flex items-center gap-2 rounded-full p-1 transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-blue-500">
           <Avatar.Root className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white">
             <Avatar.Fallback className="text-sm font-semibold">
               {getInitials(session.user.name)}
@@ -66,16 +66,16 @@ export function UserMenu() {
 
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className="z-50 min-w-[220px] rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+          className="z-50 min-w-[220px] rounded-lg border border-border bg-white p-2 shadow-lg"
           sideOffset={5}
           align="end"
         >
           {/* User Info */}
-          <div className="px-3 py-2 mb-2 border-b border-gray-200">
-            <p className="text-sm font-semibold text-gray-900">
+          <div className="px-3 py-2 mb-2 border-b border-border">
+            <p className="text-sm font-semibold text-foreground">
               {session.user.name || 'User'}
             </p>
-            <p className="text-xs text-gray-600 truncate">
+            <p className="text-xs text-muted-foreground truncate">
               {session.user.email}
             </p>
             <span
@@ -89,14 +89,14 @@ export function UserMenu() {
 
           {/* Menu Items */}
           <DropdownMenu.Item
-            className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-gray-700 outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100"
+            className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-foreground/80 outline-none transition-colors hover:bg-muted focus:bg-muted"
             onSelect={() => router.push('/settings')}
           >
             <Settings className="h-4 w-4" />
             <span>Settings</span>
           </DropdownMenu.Item>
 
-          <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
+          <DropdownMenu.Separator className="my-1 h-px bg-muted" />
 
           <DropdownMenu.Item
             className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-red-600 outline-none transition-colors hover:bg-red-50 focus:bg-red-50"

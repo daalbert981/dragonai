@@ -1,0 +1,52 @@
+{
+  "name": "Dragon AI - Learning Platform",
+  "short_name": "Dragon AI",
+  "description": "AI-powered educational platform for interactive learning and course management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0b",
+  "theme_color": "#0a0a0b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "My Courses",
+      "short_name": "Courses",
+      "description": "View your enrolled courses",
+      "url": "/student",
+      "icons": [
+        {
+          "src": "/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Admin Dashboard",
+      "short_name": "Admin",
+      "description": "Manage courses and students",
+      "url": "/admin",
+      "icons": [
+        {
+          "src": "/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}

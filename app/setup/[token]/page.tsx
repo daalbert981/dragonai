@@ -100,7 +100,7 @@ export default function AccountSetupPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
           <CardContent className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -112,7 +112,7 @@ export default function AccountSetupPage({
 
   if (error && !userInfo) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="flex items-center gap-2 text-destructive">
@@ -136,7 +136,7 @@ export default function AccountSetupPage({
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="flex items-center gap-2 text-green-600">
@@ -156,7 +156,7 @@ export default function AccountSetupPage({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Complete Your Account Setup</CardTitle>

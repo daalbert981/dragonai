@@ -60,7 +60,7 @@ function noteStatus(note: ClassNote): 'active' | 'scheduled' | 'expired' {
 const statusConfig = {
   active: { label: 'Active', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' },
   scheduled: { label: 'Scheduled', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
-  expired: { label: 'Expired', className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
+  expired: { label: 'Expired', className: 'bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground' },
 }
 
 const emptyForm = {

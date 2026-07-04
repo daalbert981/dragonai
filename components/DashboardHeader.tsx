@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { LogOut, User, Settings, Shield, ChevronDown } from 'lucide-react'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { APP_VERSION } from '@/lib/version'
 import {
   DropdownMenu,
@@ -38,12 +39,20 @@ export function DashboardHeader({ userName, userEmail, userRole }: DashboardHead
       <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between">
         {/* Logo/Brand */}
         <Link href={homePath} className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity">
-          <h2 className="text-lg sm:text-xl font-bold truncate">Dragon AI</h2>
+          <svg viewBox="0 0 32 32" className="h-6 w-6 flex-shrink-0" aria-hidden="true">
+            <rect width="32" height="32" rx="7" className="fill-foreground dark:fill-[#111113]" />
+            <path
+              d="M9 23 L16 7 L23 23 L16 19 Z"
+              className="fill-background dark:fill-[#FFC600]"
+            />
+          </svg>
+          <h2 className="text-lg sm:text-xl font-bold truncate tracking-tight">Dragon AI</h2>
           <span className="hidden sm:inline text-xs text-muted-foreground">v{APP_VERSION}</span>
         </Link>
 
         {/* User Menu */}
-        <div className="flex items-center flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-1.5 sm:gap-2 max-w-[200px]">

@@ -44,5 +44,7 @@ next-env.d.ts
 /static
 *.json
 !package.json
+!package-lock.json
 !tsconfig.json
 !components.json
+!public/manifest.json
