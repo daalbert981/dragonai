@@ -38,9 +38,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# prisma
-prisma/migrations/*
-!prisma/migrations/.gitkeep
+# prisma migrations MUST be committed (Heroku release phase runs `prisma migrate deploy`)
 
 # Google Cloud Storage credentials
 /static
