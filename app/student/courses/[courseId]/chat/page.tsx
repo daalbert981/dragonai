@@ -182,7 +182,7 @@ function AccessDeniedState() {
         </div>
         <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
         <p className="text-muted-foreground">
-          You don't have permission to access this course chat. Please contact your instructor if you believe this is an error.
+          You don&apos;t have permission to access this course chat. Please contact your instructor if you believe this is an error.
         </p>
         <Link
           href="/student"

@@ -202,7 +202,7 @@ export function ClassNotesManager({ courseId }: ClassNotesManagerProps) {
           <div>
             <CardTitle>Class Notes</CardTitle>
             <CardDescription>
-              Add notes about prior or upcoming sessions. Active notes appear in the AI assistant's context.
+              Add notes about prior or upcoming sessions. Active notes appear in the AI assistant&apos;s context.
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -309,7 +309,7 @@ export function ClassNotesManager({ courseId }: ClassNotesManagerProps) {
         {/* Note lists grouped by type */}
         {notes.length === 0 && !showForm && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No class notes yet. Click "Add Note" to create one.
+            No class notes yet. Click &quot;Add Note&quot; to create one.
           </p>
         )}
 

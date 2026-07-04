@@ -145,7 +145,7 @@ export function ModelConfigPanel({ initialConfig, onSave }: ModelConfigPanelProp
               rows={6}
             />
             <p className="text-xs text-muted-foreground">
-              This prompt defines the AI's behavior and persona
+              This prompt defines the AI&apos;s behavior and persona
             </p>
           </div>
 

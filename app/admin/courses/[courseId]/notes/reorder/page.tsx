@@ -127,7 +127,7 @@ export default function ReorderNotesPage({
         <div>
           <h1 className="text-2xl font-bold">Reorder Class Notes</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Notes at the top appear first in the AI assistant's context
+            Notes at the top appear first in the AI assistant&apos;s context
           </p>
         </div>
         <Button onClick={handleSave} disabled={!dirty || saving} size="sm">

@@ -278,7 +278,7 @@ export default function CourseAnalyticsPage({
           )}
           {insights.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No insights yet — click "Generate insights" to analyze recent student
+              No insights yet — click &quot;Generate insights&quot; to analyze recent student
               questions.
             </p>
           ) : (

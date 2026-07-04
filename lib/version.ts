@@ -14,5 +14,5 @@
  * Update this file, then update "version" in package.json to match.
  */
 
-export const APP_VERSION = '2.0.2'
+export const APP_VERSION = '2.0.3'
 export const APP_COPYRIGHT = '© 2026 Daniel Albert, PhD. All rights reserved.'
