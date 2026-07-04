@@ -20,6 +20,8 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['pdf-parse'],
+    // Required on Next 14 for instrumentation.ts to run (Sentry + cron)
+    instrumentationHook: true,
   },
   webpack: (config, { isServer }) => {
     // Exclude Google Cloud Storage from client-side bundle
