@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    console.log(`[SETUP] Account setup completed for user: ${user.email}`)
+    console.log(`[SETUP] Account setup completed for userId: ${user.id}`)
 
     return NextResponse.json({
       success: true,

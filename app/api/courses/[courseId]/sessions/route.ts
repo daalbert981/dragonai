@@ -7,7 +7,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { deleteSessionsWithFiles } from '@/lib/file-cleanup';
 import { validateCourseAccess } from '@/lib/security';
 
 /**
@@ -80,11 +81,10 @@ export async function GET(
 
     if (course.sessionRetentionPolicy === 'never') {
       // For "never" policy, DELETE all sessions for this user in this course
-      const deleteResult = await prisma.chatSession.deleteMany({
-        where: {
-          userId,
-          courseId: params.courseId
-        }
+      // (including their uploaded files in GCS)
+      await deleteSessionsWithFiles({
+        userId,
+        courseId: params.courseId
       });
 
       return NextResponse.json({
@@ -102,14 +102,12 @@ export async function GET(
         cutoffDate.setHours(cutoffDate.getHours() - totalHours);
 
 
-        // DELETE sessions older than the cutoff date
-        const deleteResult = await prisma.chatSession.deleteMany({
-          where: {
-            userId,
-            courseId: params.courseId,
-            updatedAt: {
-              lt: cutoffDate
-            }
+        // DELETE sessions older than the cutoff date (including GCS files)
+        await deleteSessionsWithFiles({
+          userId,
+          courseId: params.courseId,
+          updatedAt: {
+            lt: cutoffDate
           }
         });
 
@@ -118,12 +116,10 @@ export async function GET(
           gte: cutoffDate
         };
       } else {
-        // Delete all sessions if retention is set to 0
-        const deleteResult = await prisma.chatSession.deleteMany({
-          where: {
-            userId,
-            courseId: params.courseId
-          }
+        // Delete all sessions if retention is set to 0 (including GCS files)
+        await deleteSessionsWithFiles({
+          userId,
+          courseId: params.courseId
         });
 
         return NextResponse.json({

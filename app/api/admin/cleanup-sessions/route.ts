@@ -9,23 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { Storage } from '@google-cloud/storage'
-
-// Initialize Google Cloud Storage
-const storage = new Storage({
-  projectId: process.env.GCS_PROJECT_ID,
-  ...(process.env.GCS_CLIENT_EMAIL && process.env.GCS_PRIVATE_KEY
-    ? {
-        credentials: {
-          client_email: process.env.GCS_CLIENT_EMAIL,
-          private_key: process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n'),
-        },
-      }
-    : process.env.GOOGLE_APPLICATION_CREDENTIALS
-    ? { keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS }
-    : {}),
-})
-const bucketName = process.env.GCS_BUCKET_NAME
+import { deleteSessionsWithFiles } from '@/lib/file-cleanup'
 
 /**
  * Calculate the cutoff date for a retention policy
@@ -82,70 +66,26 @@ async function cleanupCourseSessions(course: {
     return { deleted: 0, skipped: true, reason: 'invalid configuration' }
   }
 
-  // Find sessions to delete
-  const sessionsToDelete = await prisma.chatSession.findMany({
-    where: {
-      courseId: id,
-      updatedAt: {
-        lt: cutoffDate
-      }
-    },
-    include: {
-      messages: {
-        include: {
-          fileUploads: {
-            select: {
-              filename: true
-            }
-          }
-        }
-      }
+  const result = await deleteSessionsWithFiles({
+    courseId: id,
+    updatedAt: {
+      lt: cutoffDate
     }
   })
 
-  if (sessionsToDelete.length === 0) {
+  if (result.sessions === 0) {
     return { deleted: 0, skipped: false, reason: 'no old sessions' }
   }
 
-  // Collect all file uploads from sessions
-  const filesToDelete: string[] = []
-  for (const session of sessionsToDelete) {
-    for (const message of session.messages) {
-      for (const file of message.fileUploads) {
-        filesToDelete.push(file.filename)
-      }
-    }
+  if (result.filesFailed > 0) {
+    console.warn(`[${code}] ${result.filesFailed} GCS file deletions failed`)
   }
-
-  // Delete files from Google Cloud Storage first
-  let deletedFiles = 0
-  if (filesToDelete.length > 0 && bucketName) {
-    const bucket = storage.bucket(bucketName)
-
-    for (const filename of filesToDelete) {
-      try {
-        await bucket.file(filename).delete()
-        deletedFiles++
-      } catch (error) {
-        console.warn(`[${code}] Failed to delete file ${filename} from GCS:`, (error as Error).message)
-      }
-    }
-  }
-
-  // Delete sessions (cascade will delete messages and file upload records)
-  const result = await prisma.chatSession.deleteMany({
-    where: {
-      id: {
-        in: sessionsToDelete.map(s => s.id)
-      }
-    }
-  })
 
   return {
-    deleted: result.count,
+    deleted: result.sessions,
     skipped: false,
-    filesDeleted: deletedFiles,
-    reason: `deleted ${result.count} sessions, ${deletedFiles} files`
+    filesDeleted: result.files,
+    reason: `deleted ${result.sessions} sessions, ${result.files} files`
   }
 }
 

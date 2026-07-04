@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { requireRole } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { deleteUserChatDataWithFiles } from '@/lib/file-cleanup';
 
 export async function DELETE(
   request: NextRequest,
@@ -41,17 +42,13 @@ export async function DELETE(
       );
     }
 
-    // Delete user's chat data first (no cascade relation from User to ChatSession)
-    const userSessions = await prisma.chatSession.findMany({
-      where: { userId: targetUserId },
-      select: { id: true },
-    });
-    if (userSessions.length > 0) {
-      const sessionIds = userSessions.map(s => s.id);
-      await prisma.fileUpload.deleteMany({ where: { userId: targetUserId } });
-      await prisma.chatMessage.deleteMany({ where: { sessionId: { in: sessionIds } } });
-      await prisma.chatSession.deleteMany({ where: { userId: targetUserId } });
-    }
+    // Delete user's chat data AND their uploaded files in GCS
+    // (previously only DB rows were deleted, orphaning the GCS objects)
+    const cleanup = await deleteUserChatDataWithFiles(targetUserId);
+    console.log(
+      `[USER DELETE] userId ${targetUserId}: ${cleanup.sessions} sessions, ` +
+      `${cleanup.files} GCS files deleted (${cleanup.filesFailed} failed)`
+    );
 
     // Delete user (cascades to enrollments and instructor assignments)
     await prisma.user.delete({

@@ -125,7 +125,8 @@ export async function POST(
     }
 
     // Process each student
-    for (const student of students) {
+    for (let rowIndex = 0; rowIndex < students.length; rowIndex++) {
+      const student = students[rowIndex]
       try {
         // Validate email format
         if (!student.email || !student.email.includes('@')) {
@@ -163,7 +164,7 @@ export async function POST(
             email: student.email,
             setupUrl: `${baseUrl}/setup/${setupToken}`
           })
-          console.log(`[BULK UPLOAD] Created new user: ${student.email} with setup token`)
+          console.log(`[BULK UPLOAD] Created new user id ${user.id} with setup token`)
         }
 
         // Check if already enrolled
@@ -193,10 +194,10 @@ export async function POST(
         })
 
         results.enrolled.push(student.email)
-        console.log(`[BULK UPLOAD] Enrolled: ${student.email}`)
+        console.log(`[BULK UPLOAD] Enrolled userId: ${user.id}`)
 
       } catch (error) {
-        console.error(`[BULK UPLOAD] Error processing ${student.email}:`, error)
+        console.error(`[BULK UPLOAD] Error processing row ${rowIndex + 1}:`, error)
         results.errors.push({
           email: student.email,
           error: error instanceof Error ? error.message : 'Unknown error'

@@ -185,7 +185,10 @@ function LoginForm() {
         </p>
 
         <p className="mt-4 text-center text-xs text-gray-400">
-          {APP_COPYRIGHT} &middot; v{APP_VERSION}
+          {APP_COPYRIGHT} &middot; v{APP_VERSION} &middot;{' '}
+          <Link href="/privacy" className="hover:underline">
+            Privacy
+          </Link>
         </p>
       </div>
     </div>

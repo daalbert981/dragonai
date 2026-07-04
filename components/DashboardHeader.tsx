@@ -4,7 +4,7 @@ import { signOut, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { LogOut, User, Settings, ChevronDown } from 'lucide-react'
+import { LogOut, User, Settings, Shield, ChevronDown } from 'lucide-react'
 import { APP_VERSION } from '@/lib/version'
 import {
   DropdownMenu,
@@ -69,6 +69,11 @@ export function DashboardHeader({ userName, userEmail, userRole }: DashboardHead
               <DropdownMenuItem onClick={() => router.push('/settings')}>
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => router.push('/privacy')}>
+                <Shield className="h-4 w-4 mr-2" />
+                Privacy
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />

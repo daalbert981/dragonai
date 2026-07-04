@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { deleteSessionsWithFiles } from '@/lib/file-cleanup'
 
 /**
  * Verify API key for cleanup endpoint
@@ -84,14 +85,12 @@ export async function POST(req: NextRequest) {
       let deleted = 0
 
       if (course.sessionRetentionPolicy === 'never') {
-        // Delete ALL sessions for this course
-        const deleteResult = await prisma.chatSession.deleteMany({
-          where: {
-            courseId: course.id
-          }
+        // Delete ALL sessions for this course (including GCS files)
+        const deleteResult = await deleteSessionsWithFiles({
+          courseId: course.id
         })
-        deleted = deleteResult.count
-        console.log(`[CLEANUP] Deleted ${deleted} sessions (never policy)`)
+        deleted = deleteResult.sessions
+        console.log(`[CLEANUP] Deleted ${deleted} sessions, ${deleteResult.files} files (never policy)`)
       } else if (course.sessionRetentionPolicy === 'custom') {
         // Calculate cutoff date
         const retentionDays = course.sessionRetentionDays || 0
@@ -99,30 +98,26 @@ export async function POST(req: NextRequest) {
         const totalHours = retentionDays * 24 + retentionHours
 
         if (totalHours === 0) {
-          // Delete all sessions if retention is 0
-          const deleteResult = await prisma.chatSession.deleteMany({
-            where: {
-              courseId: course.id
-            }
+          // Delete all sessions if retention is 0 (including GCS files)
+          const deleteResult = await deleteSessionsWithFiles({
+            courseId: course.id
           })
-          deleted = deleteResult.count
-          console.log(`[CLEANUP] Deleted ${deleted} sessions (0 hour retention)`)
+          deleted = deleteResult.sessions
+          console.log(`[CLEANUP] Deleted ${deleted} sessions, ${deleteResult.files} files (0 hour retention)`)
         } else if (totalHours > 0) {
           const cutoffDate = new Date()
           cutoffDate.setHours(cutoffDate.getHours() - totalHours)
 
           console.log(`[CLEANUP] Cutoff date: ${cutoffDate.toISOString()}`)
 
-          // Delete sessions older than cutoff date
-          const deleteResult = await prisma.chatSession.deleteMany({
-            where: {
-              courseId: course.id,
-              updatedAt: {
-                lt: cutoffDate
-              }
+          // Delete sessions older than cutoff date (including GCS files)
+          const deleteResult = await deleteSessionsWithFiles({
+            courseId: course.id,
+            updatedAt: {
+              lt: cutoffDate
             }
           })
-          deleted = deleteResult.count
+          deleted = deleteResult.sessions
           console.log(`[CLEANUP] Deleted ${deleted} expired sessions`)
         }
       } else {
