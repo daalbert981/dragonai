@@ -224,7 +224,8 @@ export function validateFileSize(size: number, filename: string): boolean {
     limit = FILE_SIZE_LIMITS.DOCUMENT
   }
 
-  return size <= limit
+  // Reject empty files as well as oversized ones
+  return size > 0 && size <= limit
 }
 
 /**

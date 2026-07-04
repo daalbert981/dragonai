@@ -77,12 +77,14 @@ BLOB_READ_WRITE_TOKEN="your-vercel-blob-token-here"
 # Generate Prisma Client
 npm run db:generate
 
-# Push the schema to your database
-npm run db:push
+# Apply committed migrations to your database
+npx prisma migrate deploy
 
-# Or run migrations (for production)
-npm run db:migrate
+# Seed test users (local dev only)
+npx tsx prisma/seed.ts
 ```
+
+See `docs/MIGRATIONS.md` for how to author new migrations.
 
 5. Run the development server:
 ```bash
@@ -140,9 +142,9 @@ dragonai/
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm run test` - Run the vitest suite
+- `npm run typecheck` - TypeScript type checking
 - `npm run db:generate` - Generate Prisma Client
-- `npm run db:push` - Push schema changes to database
-- `npm run db:migrate` - Run database migrations
 - `npm run db:studio` - Open Prisma Studio
 
 ## Adding shadcn/ui Components
@@ -180,9 +182,10 @@ npm run db:studio
 ```
 
 ### Update Database Schema
-1. Modify `prisma/schema.prisma`
-2. Run `npm run db:push` for development
-3. Run `npm run db:migrate` for production
+See `docs/MIGRATIONS.md` — schema changes are shipped as committed
+migration files applied by `prisma migrate deploy` during the Heroku
+release phase. Never run `prisma db push` or `prisma migrate dev`
+against the production database.
 
 ## Deployment
 
