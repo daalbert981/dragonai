@@ -10,7 +10,7 @@ enum UserRole {
 }
 
 // Define public routes that don't require authentication
-const publicRoutes = ['/', '/login', '/register']
+const publicRoutes = ['/', '/login', '/register', '/privacy']
 
 // Define role-based route mappings (SUPERADMIN has access to all routes)
 const roleRoutes: Record<string, UserRole[]> = {
