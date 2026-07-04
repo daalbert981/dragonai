@@ -15,7 +15,7 @@
 import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Copy, RefreshCw, Check, AlertCircle, Loader2, User, Bot, FileText } from 'lucide-react'
+import { Copy, RefreshCw, Check, AlertCircle, Loader2, User, Bot, FileText, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { ClientMessage, FileUpload } from '@/types'
 import { MessageErrorFallback } from './ErrorBoundary'
 import { cn } from '@/lib/utils'
@@ -45,6 +45,11 @@ interface ChatMessageProps {
    * Whether this is the last assistant message (for regenerate button)
    */
   isLastAssistantMessage?: boolean
+
+  /**
+   * Course ID (needed for the feedback endpoint)
+   */
+  courseId?: string
 }
 
 /**
@@ -55,9 +60,34 @@ export function ChatMessage({
   isStreaming = false,
   onRetry,
   onRegenerate,
-  isLastAssistantMessage = false
+  isLastAssistantMessage = false,
+  courseId
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false)
+  const [rating, setRating] = useState<number | null>(message.feedbackRating ?? null)
+
+  /**
+   * Rate an assistant answer (optimistic; clicking the active thumb clears it)
+   */
+  const handleFeedback = async (value: 1 | -1) => {
+    if (!courseId) return
+    const next = rating === value ? 0 : value
+    const previous = rating
+    setRating(next === 0 ? null : next)
+    try {
+      const res = await fetch(
+        `/api/courses/${courseId}/messages/${message.id}/feedback`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating: next })
+        }
+      )
+      if (!res.ok) throw new Error('feedback failed')
+    } catch {
+      setRating(previous)
+    }
+  }
 
   const isUser = message.role === 'USER'
   const isAssistant = message.role === 'ASSISTANT'
@@ -236,6 +266,40 @@ export function ChatMessage({
                 >
                   <RefreshCw className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
                 </button>
+              )}
+
+              {/* Feedback thumbs (assistant answers only) */}
+              {isAssistant && courseId && !isStreaming && (
+                <>
+                  <button
+                    onClick={() => handleFeedback(1)}
+                    className="p-1.5 rounded hover:bg-muted transition-colors"
+                    title="Helpful answer"
+                  >
+                    <ThumbsUp
+                      className={cn(
+                        'h-3.5 w-3.5',
+                        rating === 1
+                          ? 'text-green-600 fill-green-600/20'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    />
+                  </button>
+                  <button
+                    onClick={() => handleFeedback(-1)}
+                    className="p-1.5 rounded hover:bg-muted transition-colors"
+                    title="Not helpful"
+                  >
+                    <ThumbsDown
+                      className={cn(
+                        'h-3.5 w-3.5',
+                        rating === -1
+                          ? 'text-red-600 fill-red-600/20'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    />
+                  </button>
+                </>
               )}
             </>
           )}

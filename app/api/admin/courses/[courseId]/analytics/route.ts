@@ -372,8 +372,70 @@ export async function GET(
     const engagementRate =
       totalEnrolled > 0 ? (activeStudents / totalEnrolled) * 100 : 0
 
+    // 12. Answer feedback (identity-free): satisfaction rate + recent
+    // thumbs-down Q&A pairs so instructors can see where the AI struggles
+    const feedbackCounts = await prisma.messageFeedback.groupBy({
+      by: ['rating'],
+      where: { message: { session: { courseId: params.courseId } } },
+      _count: { id: true },
+    })
+    const upCount = feedbackCounts.find((f) => f.rating === 1)?._count.id || 0
+    const downCount = feedbackCounts.find((f) => f.rating === -1)?._count.id || 0
+    const ratedCount = upCount + downCount
+
+    const flaggedFeedback = await prisma.messageFeedback.findMany({
+      where: {
+        rating: -1,
+        message: { session: { courseId: params.courseId } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 10,
+      select: {
+        updatedAt: true,
+        message: {
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            sessionId: true,
+          },
+        },
+      },
+    })
+
+    // Pull the student question preceding each flagged answer —
+    // content only, no user identity
+    const flaggedAnswers = await Promise.all(
+      flaggedFeedback.map(async (f) => {
+        const question = await prisma.chatMessage.findFirst({
+          where: {
+            sessionId: f.message.sessionId,
+            role: 'USER',
+            createdAt: { lt: f.message.createdAt },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { content: true },
+        })
+        return {
+          question: question?.content?.slice(0, 500) || null,
+          answer: f.message.content.slice(0, 1000),
+          ratedAt: f.updatedAt,
+        }
+      })
+    )
+
+    const feedback = {
+      upCount,
+      downCount,
+      ratedCount,
+      satisfactionRate:
+        ratedCount > 0 ? Math.round((upCount / ratedCount) * 1000) / 10 : null,
+      flaggedAnswers,
+    }
+
     // Return all analytics
     return NextResponse.json({
+      feedback,
       overview: {
         totalEnrolled,
         activeStudents,

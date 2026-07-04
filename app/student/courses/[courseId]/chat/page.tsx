@@ -66,12 +66,25 @@ export default async function StudentCourseChatPage({
   let initialMessages: any[] = []
 
   if (sessionId) {
+    // The session must belong to the requesting student — sessionId comes
+    // from the URL, so without this check any enrolled student could read
+    // another student's conversation
+    const ownedSession = await prisma.chatSession.findFirst({
+      where: { id: sessionId, userId: parseInt(userId), courseId },
+      select: { id: true }
+    })
+
+    if (!ownedSession) {
+      redirect(`/student/courses/${courseId}/chat`)
+    }
+
     const messages = await prisma.chatMessage.findMany({
       where: { sessionId },
       orderBy: { createdAt: 'asc' },
       take: 50,
       include: {
-        fileUploads: true
+        fileUploads: true,
+        feedback: { select: { rating: true } }
       }
     })
 
@@ -86,6 +99,7 @@ export default async function StudentCourseChatPage({
       tokenCount: m.tokenCount,
       createdAt: m.createdAt,
       updatedAt: m.updatedAt,
+      feedbackRating: m.feedback?.rating ?? null,
       fileUploads: m.fileUploads.map(f => ({
         id: f.id,
         messageId: f.messageId,

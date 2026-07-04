@@ -170,6 +170,7 @@ export interface StreamChunk {
   delta: string
   done: boolean
   error?: string
+  messageId?: string // DB id of the saved assistant message (on done)
   toolCall?: {
     name: string
     filename: string
@@ -183,6 +184,7 @@ export interface ClientMessage extends Omit<ChatMessage, 'id' | 'createdAt' | 'u
   updatedAt: Date
   isOptimistic?: boolean // Flag for optimistic messages
   retryCount?: number // For retry logic
+  feedbackRating?: number | null // Student's 👍/👎 on assistant answers
 }
 
 // File upload progress tracking

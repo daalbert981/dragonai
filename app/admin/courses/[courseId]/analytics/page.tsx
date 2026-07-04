@@ -51,6 +51,17 @@ interface AnalyticsData {
     originalName: string;
     downloadCount: number;
   }>;
+  feedback?: {
+    upCount: number;
+    downCount: number;
+    ratedCount: number;
+    satisfactionRate: number | null;
+    flaggedAnswers: Array<{
+      question: string | null;
+      answer: string;
+      ratedAt: string;
+    }>;
+  };
   window?: { days: number; timezone: string };
 }
 
@@ -202,6 +213,57 @@ export default function CourseAnalyticsPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Answer Feedback (anonymous 👍/👎 from students) */}
+      {analytics.feedback && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Answer Feedback</CardTitle>
+            <CardDescription>
+              Anonymous student ratings of AI answers — not linked to individual students
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {analytics.feedback.ratedCount === 0 ? (
+              <p className="text-sm text-muted-foreground">No ratings yet</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-6 mb-4">
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {analytics.feedback.satisfactionRate}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">satisfaction</p>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    👍 {analytics.feedback.upCount} · 👎 {analytics.feedback.downCount} ·{' '}
+                    {analytics.feedback.ratedCount} rated
+                  </div>
+                </div>
+                {analytics.feedback.flaggedAnswers.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">Recent 👎 answers</p>
+                    {analytics.feedback.flaggedAnswers.map((f, i) => (
+                      <div key={i} className="rounded border border-border p-3 text-sm">
+                        {f.question && (
+                          <p className="mb-1">
+                            <span className="font-medium">Q:</span>{' '}
+                            <span className="text-muted-foreground">{f.question}</span>
+                          </p>
+                        )}
+                        <p className="line-clamp-3">
+                          <span className="font-medium">A:</span>{' '}
+                          <span className="text-muted-foreground">{f.answer}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Top Active Students */}

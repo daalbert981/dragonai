@@ -166,6 +166,7 @@ model ChatMessage {
 
   session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   fileUploads FileUpload[]
+  feedback    MessageFeedback?
 
   @@index([sessionId])
   @@index([userId])
@@ -242,6 +243,21 @@ enum UserRole {
   STUDENT
   INSTRUCTOR
   SUPERADMIN
+}
+
+// Student rating of an assistant answer. Deliberately has NO userId —
+// feedback stays identity-free so instructor analytics can show it
+// without exposing who rated what.
+model MessageFeedback {
+  id        String   @id @default(cuid())
+  messageId String   @unique @map("message_id")
+  rating    Int // +1 (helpful) or -1 (not helpful)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("message_feedback")
 }
 
 // Sliding-window rate limit entries, shared across dynos.

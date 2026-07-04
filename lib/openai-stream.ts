@@ -7,6 +7,7 @@
 
 import OpenAI from 'openai'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
+import { estimateTokenCount as countTokens } from '@/lib/file-parser'
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -430,16 +431,13 @@ export async function createChatCompletion(
 }
 
 /**
- * Count tokens in a message (approximate)
- * For production, consider using tiktoken library for accurate counting
+ * Count tokens in a message (accurate, via tiktoken)
  *
  * @param text - Text to count tokens for
- * @returns Approximate token count
+ * @returns Token count
  */
 export function estimateTokenCount(text: string): number {
-  // Rough estimation: ~4 characters per token
-  // This is a simplification - use tiktoken for accurate counts
-  return Math.ceil(text.length / 4)
+  return countTokens(text)
 }
 
 /**

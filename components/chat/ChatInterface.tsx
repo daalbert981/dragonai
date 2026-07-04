@@ -274,11 +274,16 @@ export function ChatInterface({
               }
 
               if (data.done) {
-                // Finalize message
+                // Finalize message; adopt the real DB id so feedback works
                 setMessages(prev =>
                   prev.map(msg =>
                     msg.id === assistantMessageId
-                      ? { ...msg, isStreaming: false, isOptimistic: false }
+                      ? {
+                          ...msg,
+                          id: data.messageId || msg.id,
+                          isStreaming: false,
+                          isOptimistic: false
+                        }
                       : msg
                   )
                 )
@@ -423,6 +428,7 @@ export function ChatInterface({
                   onRetry={retryMessage}
                   onRegenerate={regenerateResponse}
                   isLastAssistantMessage={message.id === lastAssistantMessageId}
+                  courseId={courseId}
                 />
               ))}
               <div ref={messagesEndRef} />
