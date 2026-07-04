@@ -14,8 +14,8 @@ async function getSystemStats() {
   const [totalUsers, totalCourses, totalStudents, totalInstructors] = await Promise.all([
     prisma.user.count(),
     prisma.course.count(),
-    prisma.user.count({ where: { classId: { notIn: ['admin', 'superadmin', 'instructor'] } } }),
-    prisma.user.count({ where: { classId: 'instructor' } })
+    prisma.user.count({ where: { role: 'STUDENT' } }),
+    prisma.user.count({ where: { role: 'INSTRUCTOR' } })
   ]);
 
   return { totalUsers, totalCourses, totalStudents, totalInstructors };
@@ -27,7 +27,7 @@ async function getAllUsers() {
       id: true,
       username: true,
       email: true,
-      classId: true,
+      role: true,
       createdAt: true,
       _count: {
         select: {
@@ -41,11 +41,8 @@ async function getAllUsers() {
     }
   });
 
-  // Map classId to role for display
   return users.map(user => ({
     ...user,
-    role: user.classId === 'admin' || user.classId === 'superadmin' ? 'SUPERADMIN' :
-          user.classId === 'instructor' ? 'INSTRUCTOR' : 'STUDENT',
     _count: {
       enrollments: user._count.enrollments,
       coursesInstructing: user._count.instructorCourses,

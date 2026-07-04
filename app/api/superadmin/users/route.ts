@@ -63,19 +63,20 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(validatedData.password, 10);
 
-    // Create user with appropriate classId
+    // Create user with role enum (classId kept in sync for legacy readers)
     const user = await prisma.user.create({
       data: {
         username: validatedData.username,
         email: validatedData.email,
         password: hashedPassword,
+        role: validatedData.role as any,
         classId: roleToClassId(validatedData.role),
       },
       select: {
         id: true,
         username: true,
         email: true,
-        classId: true,
+        role: true,
       },
     });
 
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
         id: true,
         username: true,
         email: true,
-        classId: true,
+        role: true,
         _count: {
           select: {
             enrollments: true,
@@ -129,14 +130,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Map classId to role for display
-    const usersWithRoles = users.map(user => ({
-      ...user,
-      role: user.classId === 'admin' || user.classId === 'superadmin' ? 'SUPERADMIN' :
-            user.classId === 'instructor' ? 'INSTRUCTOR' : 'STUDENT',
-    }));
-
-    return NextResponse.json(usersWithRoles);
+    return NextResponse.json(users);
   } catch (error: any) {
     console.error('Error fetching users:', error);
 

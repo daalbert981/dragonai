@@ -32,18 +32,15 @@ export async function GET(
 
     const { courseId } = params;
 
-    // Get all students (users with STUDENT-like classId)
     const allStudents = await prisma.user.findMany({
       where: {
-        classId: {
-          notIn: ['admin', 'superadmin', 'instructor']
-        }
+        role: 'STUDENT'
       },
       select: {
         id: true,
         username: true,
         email: true,
-        classId: true,
+        role: true,
       },
       orderBy: {
         username: 'asc'

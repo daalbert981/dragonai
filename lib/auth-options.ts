@@ -36,15 +36,11 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid credentials')
         }
 
-        // Map classId to role
-        const role = user.classId === 'admin' || user.classId === 'superadmin' ? 'SUPERADMIN' :
-                     user.classId === 'instructor' ? 'INSTRUCTOR' : 'STUDENT'
-
         return {
           id: user.id.toString(),
           email: user.email || '',
           name: user.username,
-          role: role,
+          role: user.role,
         };
       },
     }),
@@ -65,10 +61,43 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role
         token.email = user.email
         token.name = user.name
+        token.roleCheckedAt = Date.now()
       }
+
+      // Session revocation: re-verify the user against the DB every 15 min
+      // so deleted users lose access and role changes propagate without
+      // waiting out the 30-day JWT
+      const ROLE_RECHECK_MS = 15 * 60 * 1000
+      const lastChecked = (token.roleCheckedAt as number) || 0
+
+      if (token.id && Date.now() - lastChecked > ROLE_RECHECK_MS) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: parseInt(token.id as string) },
+            select: { role: true },
+          })
+
+          if (!dbUser) {
+            // User deleted — flag the token; the session callback nulls it
+            token.invalidated = true
+            return token
+          }
+
+          token.role = dbUser.role
+          token.roleCheckedAt = Date.now()
+        } catch (error) {
+          // DB hiccup: keep the existing token rather than logging everyone out
+          console.error('[AUTH] Role re-check failed:', error)
+        }
+      }
+
       return token
     },
     async session({ session, token }) {
+      if (token?.invalidated) {
+        // User no longer exists — expire the session immediately
+        return { ...session, user: undefined, expires: new Date(0).toISOString() } as any
+      }
       if (token && session.user) {
         const user = session.user as any;
         user.id = token.id;

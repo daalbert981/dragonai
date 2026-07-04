@@ -11,6 +11,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { prisma } from '@/lib/prisma'
 import { validateCourseAccess } from '@/lib/security'
+import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limit'
 import {
   createChatStream,
   handleStreamError,
@@ -72,6 +73,24 @@ export async function GET(
       return new Response(
         JSON.stringify({ error: 'Access denied' }),
         { status: 403 }
+      )
+    }
+
+    // Rate limiting — own bucket (each message = one POST + one stream GET,
+    // so sharing the chat_message bucket would halve the effective limit)
+    const rateLimit = await rateLimiter(userId, 'chat_stream', RATE_LIMITS.CHAT_MESSAGE)
+
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ error: `Too many messages. Please try again in ${rateLimit.resetIn} seconds.` }),
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': rateLimit.limit.toString(),
+            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+            'X-RateLimit-Reset': rateLimit.resetIn.toString()
+          }
+        }
       )
     }
 

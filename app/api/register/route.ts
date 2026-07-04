@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
         data: {
           username: sanitizedUsername,
           password: hashedPassword,
+          role: 'STUDENT',
           classId: 'student',
         },
       })

@@ -131,7 +131,7 @@ export async function getCourseEnrollment(userId: string, courseId: string) {
             id: true,
             username: true,
             email: true,
-            classId: true
+            role: true
           }
         }
       }

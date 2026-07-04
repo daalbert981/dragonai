@@ -13,7 +13,7 @@ interface Student {
   id: number;
   username: string;
   email: string | null;
-  classId: string;
+  role: string;
 }
 
 interface AddStudentModalProps {

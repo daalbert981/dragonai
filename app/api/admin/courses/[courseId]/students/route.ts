@@ -91,6 +91,7 @@ export async function POST(
           username: validatedData.username!,
           email: validatedData.email!,
           password: hashedPassword,
+          role: 'STUDENT',
           classId: 'student',
         },
       });
@@ -108,7 +109,7 @@ export async function POST(
       }
 
       // Verify user is a student
-      if (studentUser.classId !== 'student') {
+      if (studentUser.role !== 'STUDENT') {
         return NextResponse.json(
           { error: 'This user is not a student' },
           { status: 400 }

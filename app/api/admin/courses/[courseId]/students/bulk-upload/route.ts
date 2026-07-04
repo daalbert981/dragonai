@@ -152,7 +152,8 @@ export async function POST(
               username: username,
               email: student.email,
               password: null, // No password yet - will be set during setup
-              classId: 'STUDENT',
+              role: 'STUDENT',
+              classId: 'student',
               setupToken,
               setupTokenExpiry
             }

@@ -16,14 +16,14 @@ model User {
   username           String    @unique
   email              String?   @unique
   password           String?   @map("password_hash")
+  // Legacy role string ('admin' | 'instructor' | 'student') — superseded by `role`,
+  // still written on user creation until fully removed
   classId            String    @map("class_id")
+  role               UserRole  @default(STUDENT)
   setupToken         String?   @unique @map("setup_token")
   setupTokenExpiry   DateTime? @map("setup_token_expiry")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
-
-  // Virtual field for compatibility - will be populated from classId
-  // Note: We'll need to handle role mapping in the auth logic
 
   // Relations
   instructorCourses CourseInstructor[]
@@ -242,4 +242,17 @@ enum UserRole {
   STUDENT
   INSTRUCTOR
   SUPERADMIN
+}
+
+// Sliding-window rate limit entries, shared across dynos.
+// Rows are upserted per (identifier, endpoint) window and cleaned up
+// opportunistically; the table stays tiny.
+model RateLimitEntry {
+  id        String   @id @default(cuid())
+  key       String   @unique // "<identifier>:<endpoint>"
+  count     Int      @default(1)
+  resetTime DateTime @map("reset_time")
+
+  @@index([resetTime])
+  @@map("rate_limit")
 }

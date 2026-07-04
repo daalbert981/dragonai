@@ -26,6 +26,7 @@ async function main() {
       email: 'admin@drexel.edu',
       username: 'admin',
       password: adminPassword,
+      role: 'SUPERADMIN',
       classId: 'admin',
     },
   })
@@ -39,6 +40,7 @@ async function main() {
       email: 'instructor@drexel.edu',
       username: 'instructor',
       password: instructorPassword,
+      role: 'INSTRUCTOR',
       classId: 'instructor',
     },
   })
@@ -52,6 +54,7 @@ async function main() {
       email: 'student1@drexel.edu',
       username: 'student1',
       password: studentPassword,
+      role: 'STUDENT',
       classId: 'student',
     },
   })
@@ -64,6 +67,7 @@ async function main() {
       email: 'student2@drexel.edu',
       username: 'student2',
       password: studentPassword,
+      role: 'STUDENT',
       classId: 'student',
     },
   })

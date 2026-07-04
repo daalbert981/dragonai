@@ -1,37 +1,44 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { checkRateLimit, resetRateLimit, getRateLimitStatus, RATE_LIMITS } from '@/lib/rate-limit'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// These tests lock in the checkRateLimit contract before the storage backend
-// is swapped from in-memory Map to Postgres (Phase 3).
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    $queryRaw: vi.fn(),
+    rateLimitEntry: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      findUnique: vi.fn(),
+    },
+  },
+}))
 
-describe('checkRateLimit', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    resetRateLimit('user-1', 'test')
-  })
+import { prisma } from '@/lib/prisma'
+import { checkRateLimit, getRateLimitStatus, RATE_LIMITS } from '@/lib/rate-limit'
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+const config = { maxRequests: 3, windowSeconds: 60, identifier: 'user-1', endpoint: 'test' }
 
-  const config = { maxRequests: 3, windowSeconds: 60, identifier: 'user-1', endpoint: 'test' }
+function upsertReturns(count: number, resetInMs = 60_000) {
+  vi.mocked(prisma.$queryRaw).mockResolvedValue([
+    { count, reset_time: new Date(Date.now() + resetInMs) },
+  ] as any)
+}
+
+describe('checkRateLimit (Postgres-backed)', () => {
+  beforeEach(() => vi.clearAllMocks())
 
   it('allows requests under the limit and counts down remaining', async () => {
+    upsertReturns(1)
     const first = await checkRateLimit(config)
     expect(first.allowed).toBe(true)
     expect(first.remaining).toBe(2)
     expect(first.limit).toBe(3)
 
+    upsertReturns(2)
     const second = await checkRateLimit(config)
     expect(second.allowed).toBe(true)
     expect(second.remaining).toBe(1)
   })
 
   it('blocks requests over the limit with zero remaining', async () => {
-    await checkRateLimit(config)
-    await checkRateLimit(config)
-    await checkRateLimit(config)
-
+    upsertReturns(4, 42_000)
     const blocked = await checkRateLimit(config)
     expect(blocked.allowed).toBe(false)
     expect(blocked.remaining).toBe(0)
@@ -39,45 +46,55 @@ describe('checkRateLimit', () => {
     expect(blocked.resetIn).toBeLessThanOrEqual(60)
   })
 
-  it('resets the window after windowSeconds elapse', async () => {
-    await checkRateLimit(config)
-    await checkRateLimit(config)
-    await checkRateLimit(config)
+  it('allows exactly maxRequests requests', async () => {
+    upsertReturns(3)
+    expect((await checkRateLimit(config)).allowed).toBe(true)
+    upsertReturns(4)
     expect((await checkRateLimit(config)).allowed).toBe(false)
-
-    vi.advanceTimersByTime(61 * 1000)
-
-    const afterReset = await checkRateLimit(config)
-    expect(afterReset.allowed).toBe(true)
-    expect(afterReset.remaining).toBe(2)
   })
 
-  it('tracks identifiers and endpoints independently', async () => {
-    await checkRateLimit(config)
-    await checkRateLimit(config)
-    await checkRateLimit(config)
+  it('fails OPEN when the database is unreachable', async () => {
+    vi.mocked(prisma.$queryRaw).mockRejectedValue(new Error('connection refused'))
+    const result = await checkRateLimit(config)
+    expect(result.allowed).toBe(true)
+    expect(result.remaining).toBe(config.maxRequests)
+  })
 
-    const otherUser = await checkRateLimit({ ...config, identifier: 'user-2' })
-    expect(otherUser.allowed).toBe(true)
-
-    const otherEndpoint = await checkRateLimit({ ...config, endpoint: 'other' })
-    expect(otherEndpoint.allowed).toBe(true)
-
-    resetRateLimit('user-2', 'test')
-    resetRateLimit('user-1', 'other')
+  it('keys the upsert by identifier and endpoint', async () => {
+    upsertReturns(1)
+    await checkRateLimit(config)
+    const call = vi.mocked(prisma.$queryRaw).mock.calls[0][0] as any
+    expect(JSON.stringify(call.values ?? call)).toContain('user-1:test')
   })
 })
 
 describe('getRateLimitStatus', () => {
-  it('reports status without consuming a request', async () => {
-    resetRateLimit('user-3', 'status')
-    await checkRateLimit({ maxRequests: 5, windowSeconds: 60, identifier: 'user-3', endpoint: 'status' })
+  beforeEach(() => vi.clearAllMocks())
 
-    const status1 = getRateLimitStatus('user-3', 'status', 5, 60)
-    const status2 = getRateLimitStatus('user-3', 'status', 5, 60)
-    expect(status1.remaining).toBe(4)
-    expect(status2.remaining).toBe(4)
-    resetRateLimit('user-3', 'status')
+  it('reports remaining without incrementing', async () => {
+    vi.mocked(prisma.rateLimitEntry.findUnique).mockResolvedValue({
+      key: 'user-3:status',
+      count: 1,
+      resetTime: new Date(Date.now() + 60_000),
+    } as any)
+
+    const status = await getRateLimitStatus('user-3', 'status', 5, 60)
+    expect(status.remaining).toBe(4)
+    expect(prisma.$queryRaw).not.toHaveBeenCalled()
+  })
+
+  it('treats a missing or expired entry as a fresh window', async () => {
+    vi.mocked(prisma.rateLimitEntry.findUnique).mockResolvedValue(null as any)
+    const fresh = await getRateLimitStatus('user-3', 'status', 5, 60)
+    expect(fresh.allowed).toBe(true)
+    expect(fresh.remaining).toBe(5)
+
+    vi.mocked(prisma.rateLimitEntry.findUnique).mockResolvedValue({
+      count: 5,
+      resetTime: new Date(Date.now() - 1000),
+    } as any)
+    const expired = await getRateLimitStatus('user-3', 'status', 5, 60)
+    expect(expired.allowed).toBe(true)
   })
 })
 

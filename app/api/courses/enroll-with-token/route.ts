@@ -39,10 +39,10 @@ export async function POST(request: NextRequest) {
     // Verify user is a student
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { classId: true },
+      select: { role: true },
     })
 
-    if (!user || (user.classId !== 'student' && user.classId !== 'STUDENT')) {
+    if (!user || user.role !== 'STUDENT') {
       return NextResponse.json(
         { error: 'Only students can enroll using a token.' },
         { status: 403 }
