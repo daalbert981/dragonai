@@ -209,6 +209,7 @@ export async function GET(
                 id: true,
                 username: true,
                 email: true,
+                password: true,
               },
             },
           },
@@ -226,7 +227,18 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ enrollments: course.enrollments });
+    // Expose only whether setup is pending — never the hash itself
+    const enrollments = course.enrollments.map((e) => ({
+      ...e,
+      user: {
+        id: e.user.id,
+        username: e.user.username,
+        email: e.user.email,
+        setupPending: !e.user.password,
+      },
+    }));
+
+    return NextResponse.json({ enrollments });
   } catch (error: any) {
     console.error('Error fetching enrollments:', error);
 

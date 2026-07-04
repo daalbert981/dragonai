@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth'
+import { isEmailConfigured, sendSetupEmail } from '@/lib/email'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
@@ -93,6 +94,7 @@ export async function POST(
     // Parse form data
     const formData = await req.formData()
     const file = formData.get('file') as File
+    const sendEmails = formData.get('sendEmails') === 'true' && isEmailConfigured()
 
     if (!file) {
       return NextResponse.json(
@@ -120,9 +122,15 @@ export async function POST(
     const results = {
       total: students.length,
       enrolled: [] as string[],
-      created: [] as { email: string; setupUrl: string }[],
-      errors: [] as { email: string; error: string }[]
+      created: [] as { email: string; setupUrl: string; emailed?: boolean; emailError?: string }[],
+      errors: [] as { email: string; error: string }[],
+      emailConfigured: isEmailConfigured(),
+      emailsSent: 0
     }
+
+    const courseName = sendEmails
+      ? (await prisma.course.findUnique({ where: { id: courseId }, select: { name: true } }))?.name || 'your course'
+      : ''
 
     // Process each student
     for (let rowIndex = 0; rowIndex < students.length; rowIndex++) {
@@ -160,10 +168,28 @@ export async function POST(
             }
           })
 
-          results.created.push({
+          const createdEntry: { email: string; setupUrl: string; emailed?: boolean; emailError?: string } = {
             email: student.email,
             setupUrl: `${baseUrl}/setup/${setupToken}`
-          })
+          }
+
+          if (sendEmails) {
+            const sendResult = await sendSetupEmail({
+              to: student.email,
+              setupUrl: createdEntry.setupUrl,
+              courseName
+            })
+            createdEntry.emailed = sendResult.sent
+            if (sendResult.sent) {
+              results.emailsSent++
+            } else {
+              createdEntry.emailError = sendResult.error
+            }
+            // Resend free tier: ~2 requests/second
+            await new Promise((r) => setTimeout(r, 600))
+          }
+
+          results.created.push(createdEntry)
           console.log(`[BULK UPLOAD] Created new user id ${user.id} with setup token`)
         }
 

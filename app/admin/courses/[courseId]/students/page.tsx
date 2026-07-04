@@ -138,6 +138,7 @@ export default function StudentsManagementPage({
           <StudentTable
             students={course.enrollments}
             onRemoveStudent={handleRemoveStudent}
+            courseId={params.courseId}
           />
         </CardContent>
       </Card>

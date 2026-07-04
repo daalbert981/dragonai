@@ -22,8 +22,10 @@ interface BulkUploadStudentsModalProps {
 interface UploadResult {
   total: number;
   enrolled: string[];
-  created: Array<{ email: string; setupUrl: string }>;
+  created: Array<{ email: string; setupUrl: string; emailed?: boolean; emailError?: string }>;
   errors: Array<{ email: string; error: string }>;
+  emailConfigured?: boolean;
+  emailsSent?: number;
 }
 
 export function BulkUploadStudentsModal({
@@ -36,6 +38,7 @@ export function BulkUploadStudentsModal({
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [sendEmails, setSendEmails] = useState(true);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,6 +62,7 @@ export function BulkUploadStudentsModal({
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('sendEmails', String(sendEmails));
 
       const response = await fetch(
         `/api/admin/courses/${courseId}/students/bulk-upload`,
@@ -164,6 +168,17 @@ export function BulkUploadStudentsModal({
             )}
           </div>
 
+          {/* Send setup emails option */}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={sendEmails}
+              onChange={(e) => setSendEmails(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Email each new student their setup link automatically (when email sending is configured)
+          </label>
+
           {/* Error Display */}
           {error && (
             <Alert variant="destructive">
@@ -187,6 +202,20 @@ export function BulkUploadStudentsModal({
                   <div className="flex items-center text-sm">
                     <AlertCircle className="h-4 w-4 mr-2 text-blue-600" />
                     <span>{result.created.length} new accounts created</span>
+                  </div>
+                )}
+
+                {typeof result.emailsSent === 'number' && result.emailsSent > 0 && (
+                  <div className="flex items-center text-sm">
+                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+                    <span>{result.emailsSent} setup emails sent</span>
+                  </div>
+                )}
+
+                {result.emailConfigured === false && result.created.length > 0 && (
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    <span>Email sending not configured — use the CSV download below</span>
                   </div>
                 )}
 

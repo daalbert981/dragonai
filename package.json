@@ -1,6 +1,6 @@
 {
   "name": "dragon-ai",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 5782",
@@ -53,6 +53,7 @@
     "react-hook-form": "^7.66.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "resend": "^6.17.1",
     "serwist": "^9.5.7",
     "tailwind-merge": "^2.1.0",
     "tailwindcss-animate": "^1.0.7",

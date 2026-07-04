@@ -65,6 +65,14 @@ interface AnalyticsData {
   window?: { days: number; timezone: string };
 }
 
+interface CourseInsightRow {
+  id: string;
+  theme: string;
+  description: string | null;
+  questionCount: number;
+  createdAt: string;
+}
+
 export default function CourseAnalyticsPage({
   params,
 }: {
@@ -74,10 +82,37 @@ export default function CourseAnalyticsPage({
   const [error, setError] = useState('');
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [windowDays, setWindowDays] = useState<7 | 30 | 90>(30);
+  const [insights, setInsights] = useState<CourseInsightRow[]>([]);
+  const [insightsBusy, setInsightsBusy] = useState(false);
+  const [insightsError, setInsightsError] = useState('');
 
   useEffect(() => {
     fetchAnalytics(windowDays);
   }, [params.courseId, windowDays]);
+
+  useEffect(() => {
+    fetch(`/api/admin/courses/${params.courseId}/insights`)
+      .then((r) => (r.ok ? r.json() : { insights: [] }))
+      .then((d) => setInsights(d.insights || []))
+      .catch(() => {});
+  }, [params.courseId]);
+
+  const generateInsights = async () => {
+    setInsightsBusy(true);
+    setInsightsError('');
+    try {
+      const res = await fetch(`/api/admin/courses/${params.courseId}/insights`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate insights');
+      setInsights(data.insights || []);
+    } catch (err: any) {
+      setInsightsError(err.message);
+    } finally {
+      setInsightsBusy(false);
+    }
+  };
 
   const fetchAnalytics = async (days: number) => {
     try {
@@ -213,6 +248,61 @@ export default function CourseAnalyticsPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Question Insights (aggregated & anonymized) */}
+      <Card className="mb-6">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0">
+          <div>
+            <CardTitle>Question Insights</CardTitle>
+            <CardDescription>
+              Common themes in student questions over the last 30 days — aggregated and
+              anonymized, never linked to individual students
+            </CardDescription>
+          </div>
+          <Button onClick={generateInsights} disabled={insightsBusy} size="sm">
+            {insightsBusy ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating…
+              </>
+            ) : insights.length > 0 ? (
+              'Refresh insights'
+            ) : (
+              'Generate insights'
+            )}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {insightsError && (
+            <p className="text-sm text-red-600 mb-3">{insightsError}</p>
+          )}
+          {insights.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No insights yet — click "Generate insights" to analyze recent student
+              questions.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {insights.map((insight) => (
+                <div key={insight.id} className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-sm">{insight.theme}</p>
+                    {insight.description && (
+                      <p className="text-xs text-muted-foreground">{insight.description}</p>
+                    )}
+                  </div>
+                  <span className="flex-shrink-0 text-sm font-semibold">
+                    {insight.questionCount}
+                  </span>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground pt-2">
+                Last generated {new Date(insights[0].createdAt).toLocaleString()}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Answer Feedback (anonymous 👍/👎 from students) */}
       {analytics.feedback && (

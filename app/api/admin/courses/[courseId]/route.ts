@@ -31,6 +31,7 @@ export async function GET(
                 id: true,
                 username: true,
                 email: true,
+                password: true,
               },
             },
           },
@@ -66,7 +67,21 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(course);
+    // Map password hash to a boolean setupPending flag — never expose the hash
+    const response = {
+      ...course,
+      enrollments: course.enrollments.map((e: any) => ({
+        ...e,
+        user: {
+          id: e.user.id,
+          username: e.user.username,
+          email: e.user.email,
+          setupPending: !e.user.password,
+        },
+      })),
+    };
+
+    return NextResponse.json(response);
   } catch (error: any) {
     console.error('Error fetching course:', error);
 

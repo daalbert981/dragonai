@@ -62,6 +62,7 @@ model Course {
   enrollments  CourseEnrollment[]
   materials    CourseMaterial[]
   classNotes   ClassNote[]
+  insights     CourseInsight[]
 
   @@map("course")
 }
@@ -243,6 +244,24 @@ enum UserRole {
   STUDENT
   INSTRUCTOR
   SUPERADMIN
+}
+
+// Aggregated, anonymized themes of student questions for a course,
+// generated on demand by lib/insights.ts. Contains NO student identity.
+model CourseInsight {
+  id            String   @id @default(cuid())
+  courseId      String   @map("course_id")
+  theme         String
+  description   String?  @db.Text
+  questionCount Int      @map("question_count")
+  periodStart   DateTime @map("period_start")
+  periodEnd     DateTime @map("period_end")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@map("course_insight")
 }
 
 // Student rating of an assistant answer. Deliberately has NO userId —
